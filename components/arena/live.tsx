@@ -229,10 +229,14 @@ export function LiveArena() {
               <textarea
                 value={task}
                 onChange={(e) => setTask(e.target.value)}
-                placeholder="Search for 'Alan Turing' and open his article."
+                placeholder="Add a product to the cart  ·  Search for X and open the result  ·  Find the pricing page"
                 rows={2}
                 className="mt-1 w-full resize-none rounded-lg border border-arena-border bg-arena-panel2/50 px-3 py-2 text-sm outline-none"
               />
+              <p className="mt-1 text-[11px] text-arena-muted">
+                Tip: pick a task agents can actually finish (add to cart, search, navigate). Real checkouts need
+                payment and won&apos;t complete.
+              </p>
             </label>
             <details className="text-xs text-arena-muted">
               <summary className="cursor-pointer select-none">Login credentials (optional)</summary>
