@@ -7,9 +7,11 @@ import {
   type ArenaSnapshot,
   type RunPhase,
 } from "@/lib/arena/client";
+import type { Run } from "@/lib/arena/types";
 import { hasRun } from "@/lib/arena/view";
 
 export type ArenaStatus = "loading" | "error" | "empty" | "ready";
+export type LiveRound = { which: number; runs: Run[] };
 
 export type UseArena = {
   snapshot: ArenaSnapshot | null;
@@ -17,6 +19,7 @@ export type UseArena = {
   error: string | null;
   phase: RunPhase;
   running: boolean;
+  liveRound: LiveRound | null;
   run: () => Promise<void>;
   reload: () => Promise<void>;
 };
@@ -28,6 +31,7 @@ export function useArena(): UseArena {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [phase, setPhase] = useState<RunPhase>("idle");
+  const [liveRound, setLiveRound] = useState<LiveRound | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -47,8 +51,9 @@ export function useArena(): UseArena {
 
   const run = useCallback(async () => {
     setError(null);
+    setLiveRound(null);
     try {
-      const snap = await runTournament(setPhase);
+      const snap = await runTournament(setPhase, (which, round) => setLiveRound({ which, runs: round.runs }));
       setSnapshot(snap);
     } catch (e) {
       setPhase("failed");
@@ -65,5 +70,5 @@ export function useArena(): UseArena {
         ? "ready"
         : "empty";
 
-  return { snapshot, status, error, phase, running, run, reload };
+  return { snapshot, status, error, phase, running, liveRound, run, reload };
 }

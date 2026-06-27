@@ -5,12 +5,13 @@ import { Play, ArrowUpRight, Trophy, GitMerge, ShoppingCart, Radio } from "lucid
 import type { TournamentState } from "@/lib/arena/types";
 import type { RunPhase } from "@/lib/arena/client";
 import { useArena } from "./use-arena";
+import { AgentActivity } from "./activity";
 import { EmptyState, ErrorState, LoadingState, Panel, RunStatusBadge, SectionTitle, StatusBadge } from "./ui";
 import { agentIcon } from "./ui";
 import { agentStatus, challengeCopy, isComplete, patchedAgentIds, tournamentWinnerId } from "@/lib/arena/view";
 
 export function TournamentOverview() {
-  const { snapshot, status, error, phase, running, run, reload } = useArena();
+  const { snapshot, status, error, phase, running, liveRound, run, reload } = useArena();
 
   return (
     <div className="space-y-6">
@@ -21,6 +22,9 @@ export function TournamentOverview() {
         live={snapshot?.live}
         source={snapshot?.state.rounds[0]?.runs[0]?.source}
       />
+
+      {/* Live per-agent activity feed during/after a run */}
+      {liveRound && snapshot && <AgentActivity liveRound={liveRound} agents={snapshot.state.agents} />}
 
       {status === "loading" && <LoadingState />}
       {status === "error" && <ErrorState error={error} onRetry={reload} />}
