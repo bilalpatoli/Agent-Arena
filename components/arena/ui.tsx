@@ -4,6 +4,7 @@ import {
   Network,
   Compass,
   Trophy,
+  Zap,
   AlertTriangle,
   Inbox,
   Loader2,
@@ -14,6 +15,7 @@ import type { RunPhase } from "@/lib/arena/client";
 import { PHASE_LABEL } from "@/lib/arena/client";
 
 export const AGENT_ICON: Record<string, LucideIcon> = {
+  speedrunner: Zap,
   planner: Network,
   explorer: Compass,
   verifier: Trophy,

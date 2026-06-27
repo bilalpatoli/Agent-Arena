@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Play, ArrowUpRight, Trophy, GitMerge, Bug, Radio } from "lucide-react";
+import { Play, ArrowUpRight, Trophy, GitMerge, ShoppingCart, Radio } from "lucide-react";
 import type { TournamentState } from "@/lib/arena/types";
 import type { RunPhase } from "@/lib/arena/client";
 import { useArena } from "./use-arena";
@@ -21,7 +21,7 @@ export function TournamentOverview() {
       {status === "empty" && (
         <EmptyState
           title="No tournaments yet"
-          body="Run your first arena to see agents compete on the Bug Fix Arena challenge."
+          body="Run your first arena to see agents compete on a real ecommerce checkout."
           action={
             <button
               onClick={run}
@@ -114,7 +114,7 @@ function ActiveTournamentCard({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-lg border border-arena-purple/30 text-arena-purpleBright">
-            <Bug size={22} />
+            <ShoppingCart size={22} />
           </span>
           <div>
             <div className="flex items-center gap-2">

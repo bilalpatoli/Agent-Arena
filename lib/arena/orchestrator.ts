@@ -1,9 +1,10 @@
 import type { Agent, RoundResult, Run, SkillPatch, TournamentState } from "./types";
 import type { Challenge } from "./challenge";
-import { SIGNUP_CHALLENGE } from "./challenge";
+import { CHALLENGES, SIGNUP_CHALLENGE } from "./challenge";
 import { seedAgents } from "./agents";
 import { MockRunner } from "./mockRunner";
-import { GeminiRunner, geminiAvailable } from "./geminiRunner";
+import { GeminiRunner, liveEnabled } from "./geminiRunner";
+import { ReplayRunner, hasTrajectories } from "./trajectory";
 import { type AgentRunner } from "./runner";
 import { pickWinner } from "./judge";
 import { applyPatch, buildPatch, diffMissingBehaviors } from "./patcher";
@@ -18,7 +19,7 @@ export class HybridRunner implements AgentRunner {
   private mock = new MockRunner();
 
   async run(agent: Agent, challenge: Challenge, round: number): Promise<Run> {
-    if (geminiAvailable()) {
+    if (liveEnabled()) {
       try {
         return await this.gemini.run(agent, challenge, round);
       } catch (err) {
@@ -31,6 +32,21 @@ export class HybridRunner implements AgentRunner {
 
 export function makeTournament(challenge: Challenge = SIGNUP_CHALLENGE): TournamentState {
   return { taskId: challenge.id, agents: seedAgents(), rounds: [], patches: [] };
+}
+
+/** Which challenge the demo is currently configured to run (ARENA_CHALLENGE). */
+export function selectChallenge(): Challenge {
+  return CHALLENGES[process.env.ARENA_CHALLENGE ?? "signup"] ?? SIGNUP_CHALLENGE;
+}
+
+/**
+ * Pick the runner for a challenge:
+ *  - real site with captured trajectories → ReplayRunner (deterministic, offline)
+ *  - otherwise → HybridRunner (live Gemini if enabled, else mock)
+ */
+export function makeRunner(challenge: Challenge): AgentRunner {
+  if (challenge.kind === "real" && hasTrajectories(challenge.id)) return new ReplayRunner();
+  return new HybridRunner();
 }
 
 /** Run every agent once, judge, and record the round (no patching yet). */

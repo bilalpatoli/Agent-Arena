@@ -25,13 +25,61 @@ npm run loop     # full story in the terminal (round 1 → patch → round 2)
 npm run dev      # arena UI at /, challenge page at /challenge
 ```
 
-## Going live with Gemini
+## Demo flow (hybrid — the recommended stage setup)
 
-Set `GEMINI_API_KEY` in `.env.local` (see `.env.example`). The `HybridRunner`
-then uses `GeminiRunner` and falls back to the mock on any error. The real
-computer-use action loop plugs into the **COMPUTER-USE SEAM** in
-`lib/arena/geminiRunner.ts` — the trace/score contract is identical, so the
-judge, patcher, and UI need zero changes.
+`ARENA_LIVE=0` (default): the clickable tournament runs the deterministic mock —
+fast, reliable, tells the full Round 1 → Patch → Round 2 story every time.
+
+1. Open `/`, click **Run Tournament**. Speedrunner fails (15), Verifier wins
+   (100), the skill patch is shown, the rematch has Speedrunner at 100 (**+85**,
+   "AGENT EVOLVED").
+2. For the "this is real" beat, show the **live computer-use proof**:
+   Gemini 3.5 Flash actually driving Chromium over `/challenge`. See
+   [`docs/LIVE-PROOF.md`](docs/LIVE-PROOF.md) and run
+   `npx tsx scripts/live-test.ts verifier` (captures frames + video when the key
+   has quota).
+
+## Real-site demo (saucedemo.com) — capture & replay
+
+The headline framing is **self-improving computer-use agents** on a *real website*.
+The agents complete a checkout on saucedemo.com via live Gemini computer-use. To
+keep that bulletproof on stage, we **capture once, replay forever**:
+
+1. **Capture** (needs quota — billing-enabled key, or wait for free-tier reset):
+   ```bash
+   npm run dev                          # serves nothing site-side, but capture needs a base url
+   npx tsx scripts/capture.ts saucedemo # resume-friendly: re-run until all 6 runs captured
+   ```
+   Writes `data/trajectories/saucedemo-checkout-v1/<agent>-r{1,2}.json` (real
+   screenshots inline) + frames/video under `public/live-trace/`.
+
+2. **Replay** (deterministic, offline — what runs on stage):
+   ```bash
+   ARENA_CHALLENGE=saucedemo npm run dev   # the demo now serves the captured real runs
+   ```
+   `makeRunner()` auto-selects `ReplayRunner` for a real challenge once trajectories
+   exist. Zero live API calls, nothing can 429 or hang.
+
+The loop (judge → patch → rerun → improvement) and the whole UI are identical
+between synthetic and real — only the *source* of the `Run` objects changes.
+
+> Until real trajectories are captured, generate placeholders to exercise the
+> pipeline/UI: `npx tsx scripts/make-fixtures.ts` (marked `placeholder`,
+> gitignored — never shipped as if real).
+
+## Going live with Gemini (full live tournament)
+
+The live path is **built and proven** (`lib/arena/computerUse.ts`): the real
+`@google/genai` Interactions API + Playwright. To run the whole tournament live:
+
+1. `GEMINI_API_KEY` in `.env.local` (already wired).
+2. `ARENA_LIVE=1` (and `ARENA_BASE_URL` pointing at the running dev server).
+3. The key needs **billing enabled** — free-tier quota is exhausted after a few
+   computer-use turns (screenshots are image-token heavy → HTTP 429).
+
+The `HybridRunner` always falls back to the mock on any error (including 429),
+so the demo can never hard-break. The trace/score contract is identical between
+mock and live, so the judge, patcher, and UI need zero changes either way.
 
 ## API surface (for the frontend)
 
@@ -52,16 +100,21 @@ the entire before/after on one screen.
 lib/arena/
   types.ts         domain types (Agent, Run, Skill, SkillPatch, ...)
   challenge.ts     the trap-laden signup challenge (state machine)
-  agents.ts        seed roster: Planner + Explorer (lose) + Verifier (wins)
+  agents.ts        seed roster: Speedrunner (loses) + Verifier (wins)
   runner.ts        AgentRunner interface + behavior helper
   mockRunner.ts    deterministic, skill-driven runner (demo-safe)
-  geminiRunner.ts  live Gemini runner + computer-use seam
+  geminiRunner.ts  live runner: drives computerUse.ts, ground-truth scoring
+  computerUse.ts   Gemini 3.5 Flash computer-use ↔ Playwright browser loop
   judge.ts         winner selection
   patcher.ts       diff behaviors → build patch → apply to loser
-  orchestrator.ts  HybridRunner + runRound + evolve
+  orchestrator.ts  HybridRunner (live→mock fallback) + runRound + evolve
   store.ts         in-memory tournament singleton
+scripts/
+  run-loop.ts      terminal tournament demo (mock)
+  live-test.ts     one live computer-use run + proof capture
+  api-probe.ts     isolated Gemini Interactions API smoke test
 app/
-  page.tsx         arena dashboard (Role 1) — live-wired to /api/arena/demo
+  page.tsx         arena UI (minimal; Role 1 owns the polished version)
   challenge/       the fake SaaS signup target (live computer-use surface)
   api/arena/*      route handlers above
 agents/<id>/       AGENTS.md (strategy) + SKILL.md (skills) per agent

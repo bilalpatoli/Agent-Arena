@@ -6,23 +6,30 @@ import type { RoundResult, Run, SkillPatch, TournamentState } from "./types";
 // per-agent identity copy (strength/weakness), which the API does not provide.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Static identity copy for the Bug Fix Arena roster. These describe who the
-// agents ARE (not run results), so they are safe static labels.
+// Static identity copy for the agent roster. These describe who the agents ARE
+// (not run results), so they are safe static labels.
 // TODO(api): expose strength/weakness on the Agent payload to remove these.
 export const AGENT_IDENTITY: Record<string, { strength?: string; weakness?: string }> = {
-  planner: { weakness: "Guesses before reproducing" },
-  explorer: { weakness: "Skips final verification" },
-  verifier: { strength: "Reproduce, diagnose, test, verify" },
+  speedrunner: { weakness: "Rushes — clicks first, skips verification" },
+  planner: { weakness: "Takes the page at face value" },
+  verifier: { strength: "Scans everything, verifies the real success state" },
 };
 
 // Static challenge copy. The API exposes a challenge taskId but not the
 // title/goal, so this is product copy keyed by task.
 // TODO(api): include challenge { title, goal } in the /api/arena payload.
 export const CHALLENGE_COPY: Record<string, { name: string; summary: string; task: string }> = {
-  "bugfix-checkout-v1": {
-    name: "Bug Fix Arena",
-    summary: "Engineering agents compete to fix a broken ecommerce checkout flow.",
-    task: "Fix the checkout and get a test order to the success page.",
+  // Headline challenge: a real ecommerce checkout on saucedemo.com via live
+  // computer-use (captured + replayed).
+  "saucedemo-checkout-v1": {
+    name: "Swag Labs Checkout",
+    summary: "Self-improving computer-use agents compete to complete a real ecommerce checkout on saucedemo.com.",
+    task: "Log in, add the backpack to the cart, complete checkout, and confirm the order.",
+  },
+  "saas-signup-v1": {
+    name: "Onboarding Arena",
+    summary: "Agents compete to complete a multi-step onboarding flow and reach the dashboard.",
+    task: "Complete the signup flow and verify you reach the dashboard.",
   },
 };
 export const challengeCopy = (taskId: string) =>

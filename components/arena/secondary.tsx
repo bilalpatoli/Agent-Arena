@@ -114,6 +114,8 @@ export function TournamentsView() {
 
 export function SettingsView() {
   const { snapshot, status } = useArena();
+  const roster = snapshot?.state.agents.map((a) => a.name).join(", ");
+  const challenge = snapshot ? challengeCopy(snapshot.state.taskId).name : undefined;
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" subtitle="Runtime configuration for the arena." />
@@ -121,8 +123,8 @@ export function SettingsView() {
         <SectionTitle icon={<SettingsIcon size={14} />}>Runtime</SectionTitle>
         <dl className="mt-3 space-y-2.5 text-sm">
           <Row term="Agent runner" desc={status === "loading" ? "…" : snapshot?.live ? "Gemini computer use (live)" : "Deterministic engine"} />
-          <Row term="Roster" desc="Planner, Explorer, Verifier" />
-          <Row term="Challenge" desc="Bug Fix Arena — broken checkout" />
+          <Row term="Roster" desc={roster ?? "—"} />
+          <Row term="Challenge" desc={challenge ?? "—"} />
         </dl>
         <p className="mt-3 text-xs text-arena-muted">
           {/* TODO(api): expose editable settings (model, roster, challenge) via the API. */}

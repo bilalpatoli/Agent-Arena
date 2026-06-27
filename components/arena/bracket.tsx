@@ -12,16 +12,18 @@ const pct = (n: number, total: number) => `${(n / total) * 100}%`;
 const NEON = "#7cff57";
 const DIM = "#5b4d82";
 
-const SLOTS = [
-  { id: "planner", x: 110 },
-  { id: "explorer", x: 320 },
-  { id: "verifier", x: 530 },
-];
+// Spread the actual roster across the bracket floor (works for any agent ids).
+function slotsFor(ids: string[]): { id: string; x: number }[] {
+  const n = ids.length;
+  if (n === 1) return [{ id: ids[0], x: 320 }];
+  return ids.map((id, i) => ({ id, x: 110 + (i * 420) / (n - 1) }));
+}
 
 export function ArenaBracket({ state, round }: { state: TournamentState; round: number }) {
   const rd = roundByNumber(state, round);
   const won = (id: string) => runForAgent(rd, id)?.result === "success";
   const scoreOf = (id: string) => runForAgent(rd, id)?.score;
+  const SLOTS = slotsFor(state.agents.map((a) => a.id));
 
   const path = (x: number) =>
     x === 320 ? "M320 226 L320 100" : `M${x} 226 C${x} 176 ${x < 320 ? 232 : 408} 190 ${x < 320 ? 318 : 322} 102`;

@@ -1,91 +1,178 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Bug Fix Arena — the challenge: "Fix the broken ecommerce checkout and get a
-// test order to the success page."
+// The challenge: "Create an account on a fake SaaS site and reach the dashboard."
 //
-// We model the task as a set of debugging steps an agent must clear. Each step
-// maps to a behavioral capability ("requiredBehavior"). The runner checks whether
-// the agent's skills grant that behavior — so applying a skill patch literally
-// changes which steps the agent can clear on the rerun. A live computer-use agent
-// clears the steps by actually doing them against the checkout app.
-//
-// NOTE (content): the behavior-tag strings below are the engine's internal skill
-// identifiers and are never shown to users — the UI renders the labels/traces.
+// We model the page as a set of TRAPS. To succeed, an agent must clear every
+// trap. Each trap maps to a behavioral capability ("requiredBehavior"). The mock
+// runner checks whether the agent's SKILL.md grants that behavior — so applying a
+// skill patch literally changes which traps the agent can clear on the rerun.
+// The live Gemini runner clears traps by actually doing them in the browser.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface Trap {
   id: string;
   label: string;
-  /** What the agent has to *do* to clear this step. */
+  /** What the agent has to *do* to get past it. */
   description: string;
-  /** Behavior tag an agent's skills must contain to clear this step. */
+  /** Behavior tag an agent's skills must contain to clear this trap. */
   requiredBehavior: string;
-  /** Points awarded for clearing this step. */
+  /** Points awarded for clearing this trap. */
   weight: number;
 }
 
 export interface Challenge {
   id: string;
   title: string;
+  /** Page the agent operates on. Synthetic challenges use a local path
+   *  ("/challenge"); real challenges use an absolute URL. */
   url: string;
   goal: string;
+  /** "synthetic" → local trap page driven by the mock model; "real" → a live
+   *  public website driven by Gemini computer-use (captured + replayed). */
+  kind: "synthetic" | "real";
   traps: Trap[];
   /** A distractor that PENALIZES agents who fall for it. */
   decoy: { id: string; label: string; behaviorThatAvoidsIt: string; penalty: number };
+  // ── real-site fields (used by the live computer-use runner) ──
+  /** Visible text on the page that proves the task truly succeeded. */
+  successText?: string[];
+  /** Credentials the agent should use to log in, surfaced in the prompt. */
+  credentials?: { username: string; password: string };
+  /** Step-by-step task spec injected into the live agent prompt. */
+  taskSpec?: string;
 }
 
-export const CHECKOUT_CHALLENGE: Challenge = {
-  id: "bugfix-checkout-v1",
-  title: "Bug Fix Arena — Fix the broken checkout",
-  url: "/checkout",
-  goal: "Fix the checkout and get a test order to the success page.",
+export const SIGNUP_CHALLENGE: Challenge = {
+  id: "saas-signup-v1",
+  title: "FlowMetrics — Create account & reach dashboard",
+  url: "/challenge",
+  kind: "synthetic",
+  goal: "Create an account and verify you land on the dashboard success page.",
   traps: [
     {
-      id: "set-up-order",
-      label: "Set up a test order",
-      description: "Add an item and open the checkout so there is a real order to put through.",
+      id: "fill-form",
+      label: "Fill the signup form",
+      description: "Enter email + password in the visible fields.",
       requiredBehavior: "fill-basic-form",
       weight: 20,
     },
     {
-      id: "reproduce-bug",
-      label: "Reproduce the bug",
+      id: "hidden-checkbox",
+      label: "Required checkbox below the fold",
       description:
-        "Reproduce the disabled Place Order button and inspect the checkout validation state before touching any code.",
+        "A mandatory 'I agree to terms' checkbox is hidden far below the fold. The form will not submit without it.",
       requiredBehavior: "scroll-full-page",
       weight: 30,
     },
     {
-      id: "find-condition",
-      label: "Identify the blocking condition",
-      description: "Trace the console error to the validation condition that blocks completion.",
+      id: "enable-submit",
+      label: "Disabled submit button",
+      description:
+        "The submit button stays disabled until the hidden checkbox is checked.",
       requiredBehavior: "scroll-full-page",
       weight: 10,
     },
     {
-      id: "run-tests",
-      label: "Run the checkout test",
-      description: "After editing the logic, run the checkout test to confirm the fix.",
+      id: "confirm-modal",
+      label: "Confirmation modal",
+      description: "A modal appears after submit and must be confirmed.",
       requiredBehavior: "handle-modal",
       weight: 15,
     },
     {
       id: "verify-success",
-      label: "Verify the success page",
+      label: "Verify the dashboard success state",
       description:
-        "Confirm the order actually reaches /success ('Order confirmed') — a passing log line is not proof on its own.",
+        "A fake 'success' toast can appear even on failure. The agent must confirm the real dashboard URL/heading.",
       requiredBehavior: "verify-final-state",
       weight: 25,
     },
   ],
   decoy: {
-    id: "guess-edit",
-    label: "Edited the obvious file on a guess",
+    id: "fake-cta",
+    label: "Misleading 'Get Started Free →' CTA",
     behaviorThatAvoidsIt: "verify-final-state",
     penalty: 20,
   },
 };
 
-export const TOTAL_POSSIBLE = CHECKOUT_CHALLENGE.traps.reduce((s, t) => s + t.weight, 0);
+export const TOTAL_POSSIBLE = SIGNUP_CHALLENGE.traps.reduce((s, t) => s + t.weight, 0);
 
-// Back-compat alias so existing imports keep working.
-export const SIGNUP_CHALLENGE = CHECKOUT_CHALLENGE;
+// ─────────────────────────────────────────────────────────────────────────────
+// The real-site challenge: complete a checkout on saucedemo.com (Swag Labs), a
+// public site built for automation. Driven live by Gemini computer-use; runs are
+// captured to trajectories and replayed deterministically for the demo.
+//
+// The task has a natural failure axis: the checkout requires ALL fields (incl.
+// postal code), the order is only complete after clicking Finish, and success is
+// the "Thank you for your order!" confirmation — a rushing agent stops short or
+// declares victory early; a verifying agent confirms the real confirmation page.
+// ─────────────────────────────────────────────────────────────────────────────
+export const SAUCEDEMO_CHALLENGE: Challenge = {
+  id: "saucedemo-checkout-v1",
+  title: "Swag Labs — Complete a checkout & confirm the order",
+  url: "https://www.saucedemo.com/",
+  kind: "real",
+  goal: "Log in, add the Sauce Labs Backpack to the cart, complete checkout, and verify the order is confirmed.",
+  credentials: { username: "standard_user", password: "secret_sauce" },
+  successText: ["Thank you for your order", "Checkout: Complete"],
+  taskSpec: [
+    "1. Log in with the provided username and password.",
+    "2. On the products page, add 'Sauce Labs Backpack' to the cart.",
+    "3. Open the cart (top-right) and click Checkout.",
+    "4. Fill 'Your Information': First Name, Last Name, AND Postal/Zip Code — all three are required.",
+    "5. Click Continue, then on the overview click Finish to actually place the order.",
+    "6. The task is ONLY complete when the confirmation reads 'Thank you for your order!'.",
+  ].join("\n"),
+  // Trap/behavior model is informational for the real site (behavior emerges from
+  // the live model + SKILL.md); kept for the judge/patch behavior vocabulary.
+  traps: [
+    {
+      id: "login",
+      label: "Log in",
+      description: "Authenticate with the provided credentials.",
+      requiredBehavior: "fill-basic-form",
+      weight: 15,
+    },
+    {
+      id: "add-to-cart",
+      label: "Add the right item to the cart",
+      description: "Add the Sauce Labs Backpack (verify it's the correct item).",
+      requiredBehavior: "fill-basic-form",
+      weight: 15,
+    },
+    {
+      id: "checkout-fields",
+      label: "Complete all checkout fields",
+      description: "First, last, AND postal code are required — skipping zip blocks the order.",
+      requiredBehavior: "scroll-full-page",
+      weight: 30,
+    },
+    {
+      id: "finish-order",
+      label: "Place the order (Finish)",
+      description: "Click Finish on the overview — stopping early means no order.",
+      requiredBehavior: "scroll-full-page",
+      weight: 15,
+    },
+    {
+      id: "verify-confirmation",
+      label: "Verify the confirmation",
+      description: "Confirm the real 'Thank you for your order!' page before declaring success.",
+      requiredBehavior: "verify-final-state",
+      weight: 25,
+    },
+  ],
+  decoy: {
+    id: "premature-success",
+    label: "Declaring success at the checkout overview before clicking Finish",
+    behaviorThatAvoidsIt: "verify-final-state",
+    penalty: 20,
+  },
+};
+
+export const CHALLENGES: Record<string, Challenge> = {
+  [SIGNUP_CHALLENGE.id]: SIGNUP_CHALLENGE,
+  [SAUCEDEMO_CHALLENGE.id]: SAUCEDEMO_CHALLENGE,
+  saucedemo: SAUCEDEMO_CHALLENGE,
+  signup: SIGNUP_CHALLENGE,
+};

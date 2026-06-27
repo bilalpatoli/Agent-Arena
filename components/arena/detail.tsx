@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Play, RotateCw, Bug, Trophy } from "lucide-react";
+import { Play, RotateCw, ShoppingCart, Trophy } from "lucide-react";
 import type { TournamentState } from "@/lib/arena/types";
 import { challengeCopy, isComplete, tournamentWinnerId } from "@/lib/arena/view";
 import { useArena } from "./use-arena";
@@ -22,7 +22,7 @@ export function TournamentDetail() {
     return (
       <EmptyState
         title="No tournament run yet"
-        body="Run the Bug Fix Arena to generate a full tournament: rounds, winner, skill patch, and rerun."
+        body="Run a tournament to generate the full story: rounds, winner, skill patch, and rerun."
         action={
           <button
             onClick={run}
@@ -104,7 +104,7 @@ function ChallengeSummary({ state }: { state: TournamentState }) {
     <Panel className="p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-11 w-11 place-items-center rounded-lg border border-arena-purple/30 text-arena-purpleBright">
-          <Bug size={22} />
+          <ShoppingCart size={22} />
         </span>
         <div>
           <h2 className="text-lg font-semibold">{copy.name}</h2>
