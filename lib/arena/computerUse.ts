@@ -33,6 +33,24 @@ export interface ComputerUseResult {
   finalState: string;
 }
 
+// On real commercial sites, Gemini computer-use raises a safety-acknowledgement
+// gate on some clicks (consent walls, account/form steps), which otherwise stalls
+// a run. Setting ARENA_RELAX_SAFETY=1 disables the BENIGN policies below so those
+// steps proceed. "financial_transactions" is intentionally NEVER disabled — that
+// gate stays on, so an agent can never complete a real purchase/payment; it
+// safely fails at the payment step instead. OFF by default (no policies disabled).
+const RELAXABLE_SAFETY_POLICIES = [
+  "user_consent_management",
+  "legal_terms_and_agreements",
+  "account_creation",
+  "data_modification",
+  "sensitive_data_modification",
+  "communication_tool",
+];
+function disabledSafetyPolicies(): string[] {
+  return process.env.ARENA_RELAX_SAFETY === "1" ? RELAXABLE_SAFETY_POLICIES : [];
+}
+
 /** Live progress event for streaming a run to the UI. */
 export type CuEvent =
   | { kind: "status"; message: string }
@@ -67,11 +85,18 @@ export async function runComputerUse(
       ...(opts.recordDir ? { recordVideo: { dir: opts.recordDir, size: VIEWPORT } } : {}),
     });
     const page = await context.newPage();
-    page.setDefaultTimeout(8000); // no Playwright action may hang the loop
+    page.setDefaultTimeout(8000); // no Playwright *action* may hang the loop
     const startUrl = new URL(challenge.url, opts.baseUrl).toString();
     // NOT "networkidle": the Next dev HMR websocket keeps the network busy forever.
-    await page.goto(startUrl, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(500);
+    // Navigation gets its own generous timeout — heavy commercial sites take far
+    // longer than the 8s action default to reach domcontentloaded.
+    try {
+      await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+    } catch {
+      // Some sites never fire a clean load event; continue with whatever rendered.
+      emit({ kind: "status", message: "page slow to settle — continuing" });
+    }
+    await page.waitForTimeout(800);
     emit({ kind: "status", message: `opened ${startUrl}` });
 
     let prevId: string | undefined;
@@ -97,7 +122,13 @@ export async function runComputerUse(
             model: MODEL,
             store: true,
             system_instruction: buildSystemInstruction(agent),
-            tools: [{ type: "computer_use", environment: "browser" }] as any,
+            tools: [
+              {
+                type: "computer_use",
+                environment: "browser",
+                disabled_safety_policies: disabledSafetyPolicies(),
+              },
+            ] as any,
             previous_interaction_id: prevId,
             input: input as any,
           },
