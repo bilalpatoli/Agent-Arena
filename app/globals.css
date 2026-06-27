@@ -16,6 +16,39 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Consistent keyboard-focus ring across interactive elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.7);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Buttons feel responsive without per-component churn */
+button {
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+}
+
+/* Tidy, theme-matched scrollbars for the log/timeline panels */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a3a transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a2a3a;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a3a4f;
+}
+
 /* Faint tactical grid inside panels / arena */
 .arena-grid {
   background-image:
