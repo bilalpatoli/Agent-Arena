@@ -61,53 +61,53 @@ export function resultToRun(
   };
 }
 
-// ── ground-truth scoring ─────────────────────────────────────────────────────
+// ── ground-truth scoring (challenge-agnostic, outcome-driven) ────────────────
 function scoreRun(r: ComputerUseResult): {
   score: number;
   signalTrait: string;
   failureReason?: string;
 } {
-  const scrolled = r.steps.some((s) => s.action === "scroll" && s.ok);
-  const typed = r.steps.some((s) => s.action === "type" && s.ok);
-
   if (r.success) {
-    let score = 100;
-    if (r.clickedDecoy) score -= 15;
-    const overhead = Math.max(0, r.steps.length - 9);
-    score = Math.max(70, score - overhead * 2);
+    // Real multi-step flows legitimately take ~15-18 actions; only penalize
+    // meaningful overhead beyond that, and keep a high floor.
+    const overhead = Math.max(0, r.steps.length - 16);
+    const score = Math.max(88, 100 - overhead * 2 - (r.clickedDecoy ? 8 : 0));
     return {
       score,
-      signalTrait: "Scanned the full page, cleared every trap, and verified the real dashboard state.",
+      signalTrait: "Completed the task end-to-end and verified the real success state.",
     };
   }
 
-  // Partial credit for how far it got before stalling.
-  let score = 10;
-  if (typed) score += 15;
-  if (scrolled) score += 20;
-  if (r.clickedDecoy) score -= 15;
-  score = Math.max(0, Math.min(55, score));
+  // Fail: credit progress by how many actions actually landed before stalling.
+  const okSteps = r.steps.filter((s) => s.ok).length;
+  const score = Math.max(8, Math.min(55, 8 + okSteps * 4));
 
-  const failureReason = !scrolled
-    ? "Never scrolled below the fold, so it missed the required checkbox and the form never submitted."
-    : r.clickedDecoy
-      ? "Chased the fake 'Get Started Free' CTA instead of verifying the real dashboard."
-      : "Stalled before reaching and verifying the real dashboard.";
-
+  const failureReason = failureFromUrl(r.finalUrl);
   return {
     score,
-    signalTrait: !scrolled
-      ? "Never scrolled below the fold."
-      : "Did not verify the real success state.",
+    signalTrait: r.finalUrl.includes("inventory")
+      ? "Gave up early — never followed the task through."
+      : "Did not see the task through to a verified success.",
     failureReason,
   };
+}
+
+/** Turn the real final URL into a human failure reason (saucedemo-aware, generic fallback). */
+function failureFromUrl(url: string): string {
+  if (url.includes("inventory") || url.includes("cart"))
+    return "Gave up early — added the item but never went through checkout.";
+  if (url.includes("step-two") || url.includes("overview"))
+    return "Stopped at the order overview and never clicked Finish to place and confirm the order.";
+  if (url.includes("step-one") || url.includes("information"))
+    return "Left the checkout form incomplete.";
+  return "Stopped before reaching and verifying the real success state.";
 }
 
 function terminalStep(success: boolean): TraceStep {
   return {
     index: 0,
     action: success ? "verify" : "halt",
-    description: success ? "Reached the dashboard." : "Could not complete the task.",
+    description: success ? "Reached the success state." : "Could not complete the task.",
     ok: success,
   };
 }

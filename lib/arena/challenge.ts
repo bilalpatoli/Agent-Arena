@@ -112,17 +112,14 @@ export const SAUCEDEMO_CHALLENGE: Challenge = {
   title: "Swag Labs — Complete a checkout & confirm the order",
   url: "https://www.saucedemo.com/",
   kind: "real",
-  goal: "Log in, add the Sauce Labs Backpack to the cart, complete checkout, and verify the order is confirmed.",
+  goal: "Buy a Sauce Labs Backpack from this store.",
   credentials: { username: "standard_user", password: "secret_sauce" },
   successText: ["Thank you for your order", "Checkout: Complete"],
-  taskSpec: [
-    "1. Log in with the provided username and password.",
-    "2. On the products page, add 'Sauce Labs Backpack' to the cart.",
-    "3. Open the cart (top-right) and click Checkout.",
-    "4. Fill 'Your Information': First Name, Last Name, AND Postal/Zip Code — all three are required.",
-    "5. Click Continue, then on the overview click Finish to actually place the order.",
-    "6. The task is ONLY complete when the confirmation reads 'Thank you for your order!'.",
-  ].join("\n"),
+  // Orientation only — NOT a recipe. How far each agent actually follows through
+  // (and whether it confirms the order) is determined by its own strategy/skills,
+  // which is what makes the agents diverge into winners and losers.
+  taskSpec:
+    "This is the Swag Labs demo store: a products list, a cart (top-right), and a multi-step checkout (information form → overview → confirmation).",
   // Trap/behavior model is informational for the real site (behavior emerges from
   // the live model + SKILL.md); kept for the judge/patch behavior vocabulary.
   traps: [

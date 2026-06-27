@@ -1,10 +1,11 @@
 // Live smoke test for the Gemini computer-use loop (one agent, one run).
-//   npx tsx scripts/live-test.ts verifier
-// Requires the dev server running (serves /challenge) and GEMINI_API_KEY set.
+//   npx tsx scripts/live-test.ts <agentId> [challengeId]
+//   npx tsx scripts/live-test.ts verifier saucedemo
+// For the synthetic 'signup' challenge the dev server must be running.
 
 import { readFileSync } from "node:fs";
 import { runComputerUse } from "../lib/arena/computerUse";
-import { SIGNUP_CHALLENGE } from "../lib/arena/challenge";
+import { CHALLENGES } from "../lib/arena/challenge";
 import { seedAgents } from "../lib/arena/agents";
 
 // minimal .env.local loader (tsx doesn't auto-load it)
@@ -17,12 +18,14 @@ try {
 
 async function main() {
   const id = process.argv[2] ?? "verifier";
+  const challenge = CHALLENGES[process.argv[3] ?? "signup"];
   const agent = seedAgents().find((a) => a.id === id)!;
-  console.log(`\n▶ Live computer-use run: ${agent.name}\n`);
+  console.log(`\n▶ Live computer-use run: ${agent.name} on ${challenge.title}\n`);
 
-  const recordDir = `public/live-trace/${agent.id}`;
-  const r = await runComputerUse(agent, SIGNUP_CHALLENGE, {
+  const recordDir = `public/live-trace/${challenge.id}/${agent.id}`;
+  const r = await runComputerUse(agent, challenge, {
     baseUrl: process.env.ARENA_BASE_URL ?? "http://localhost:3001",
+    maxSteps: challenge.kind === "real" ? 24 : 14,
     recordDir,
   });
   console.log(`  proof saved → ${recordDir}/ (frames + video + trace.json)`);
