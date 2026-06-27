@@ -6,7 +6,7 @@ import { useArena } from "./use-arena";
 import { EmptyState, ErrorState, LoadingState, Panel, SectionTitle, StatusBadge } from "./ui";
 import { AgentCard } from "./agent-card";
 import { AgentSubmissionForm } from "./agent-form";
-import { SkillPatchViewer } from "./patch";
+import { SkillLibrary, SkillTransferLog } from "./skill-library";
 import { challengeCopy, isComplete, tournamentWinnerId } from "@/lib/arena/view";
 
 function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
@@ -53,20 +53,15 @@ export function PatchesView() {
   const { snapshot, status, error, running, run, reload } = useArena();
   return (
     <div className="space-y-6">
-      <PageHeader title="Skill Patches" subtitle="Behaviors transferred from winning agents to the rest of the population." />
+      <PageHeader title="Skill Library" subtitle="The population's accumulated capabilities and how they propagated from winners to the rest." />
       {status === "loading" && <LoadingState />}
       {status === "error" && <ErrorState error={error} onRetry={reload} />}
-      {status === "empty" && <EmptyState title="No skill patches yet" body="Run a tournament to generate skill patches." action={runCta(run, running)} />}
+      {status === "empty" && <EmptyState title="No skills yet" body="Run a tournament to build the skill library." action={runCta(run, running)} />}
       {status === "ready" && snapshot && (
-        snapshot.state.patches.length === 0 ? (
-          <EmptyState title="No skill patches yet" body="This run hasn't produced a skill patch." action={runCta(run, running)} />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {snapshot.state.patches.map((p) => (
-              <SkillPatchViewer key={p.id} state={snapshot.state} patch={p} />
-            ))}
-          </div>
-        )
+        <>
+          <SkillLibrary state={snapshot.state} />
+          <SkillTransferLog state={snapshot.state} />
+        </>
       )}
     </div>
   );

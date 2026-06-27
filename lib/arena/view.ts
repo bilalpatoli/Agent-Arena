@@ -93,3 +93,59 @@ export function headlinePatch(s: TournamentState): SkillPatch | undefined {
 export function patchedAgentIds(s: TournamentState): string[] {
   return Array.from(new Set(s.patches.flatMap((p) => p.targetAgents)));
 }
+
+// ── Skill library: how capabilities are distributed across the population and
+// how they propagated (innate vs learned from a winner). ──────────────────────
+export type SkillHolder = {
+  agentId: string;
+  origin: "innate" | "patch";
+  learnedFrom?: string;
+  learnedRound?: number;
+};
+export type LibrarySkill = {
+  tag: string;
+  label: string;
+  desc: string;
+  holders: SkillHolder[];
+  learnedCount: number; // holders who learned it via a patch
+  coverage: number; // holders / total agents (0..1)
+  taughtBy?: string; // winner who taught it
+};
+
+export function skillLibrary(s: TournamentState): LibrarySkill[] {
+  const total = s.agents.length || 1;
+  const label = Object.fromEntries(BEHAVIORS.map((b) => [b.tag, b]));
+  const tags = new Set<string>();
+  s.agents.forEach((a) => a.skills.forEach((sk) => sk.grants.forEach((g) => tags.add(g))));
+
+  const lib: LibrarySkill[] = [...tags].map((tag) => {
+    const holders: SkillHolder[] = [];
+    for (const a of s.agents) {
+      const sk = a.skills.find((x) => x.grants.includes(tag));
+      if (sk) holders.push({ agentId: a.id, origin: sk.origin, learnedFrom: sk.learnedFrom, learnedRound: sk.learnedRound });
+    }
+    const learned = holders.filter((h) => h.origin === "patch");
+    return {
+      tag,
+      label: label[tag]?.label ?? tag,
+      desc: label[tag]?.desc ?? "",
+      holders,
+      learnedCount: learned.length,
+      coverage: holders.length / total,
+      taughtBy: learned[0]?.learnedFrom,
+    };
+  });
+
+  // Most-propagated capabilities first.
+  return lib.sort((a, b) => b.learnedCount - a.learnedCount || b.coverage - a.coverage);
+}
+
+export function librarySummary(s: TournamentState) {
+  const lib = skillLibrary(s);
+  return {
+    capabilities: lib.length,
+    transfers: lib.reduce((n, sk) => n + sk.learnedCount, 0),
+    fullyAdopted: lib.filter((sk) => sk.coverage >= 1).length,
+    agents: s.agents.length,
+  };
+}

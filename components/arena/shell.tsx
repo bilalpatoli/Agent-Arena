@@ -9,7 +9,7 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Arena", icon: Swords },
   { href: "/tournaments", label: "Tournaments", icon: Trophy },
   { href: "/agents", label: "Agents", icon: Users },
-  { href: "/patches", label: "Skill Patches", icon: GitMerge },
+  { href: "/patches", label: "Skill Library", icon: GitMerge },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
