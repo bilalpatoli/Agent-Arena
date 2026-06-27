@@ -16,7 +16,7 @@ export function AgentCard({ state, id }: { state: TournamentState; id: string })
   const win = status === "winner" || status === "success";
 
   return (
-    <div className={`flex flex-col rounded-xl border bg-arena-panel p-4 transition-transform duration-200 hover:-translate-y-0.5 ${win ? "border-arena-neon/40" : "border-arena-border"}`}>
+    <div className={`flex flex-col rounded-2xl border bg-arena-panel p-5 transition-transform duration-200 hover:-translate-y-0.5 ${win ? "border-arena-neon/40" : "border-arena-border"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className={`grid h-10 w-10 place-items-center rounded-lg border ${win ? "border-arena-neon/40 text-arena-neon" : "border-arena-purple/30 text-arena-purpleBright"}`}>

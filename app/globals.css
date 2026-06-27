@@ -8,9 +8,9 @@
 
 body {
   background:
-    radial-gradient(1100px 520px at 18% -8%, rgba(139, 92, 246, 0.16), transparent 60%),
-    radial-gradient(900px 480px at 95% 4%, rgba(124, 255, 87, 0.07), transparent 55%),
-    #070709;
+    radial-gradient(1100px 520px at 18% -8%, rgba(139, 92, 246, 0.1), transparent 60%),
+    radial-gradient(900px 480px at 95% 4%, rgba(124, 255, 87, 0.04), transparent 55%),
+    #08080b;
   color: #e8e8f0;
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
@@ -57,12 +57,12 @@ button {
   background-size: 38px 38px;
 }
 
-/* Glow helpers */
+/* Glow helpers — restrained; used only for live/winner states */
 .glow-neon {
-  box-shadow: 0 0 0 1px rgba(124, 255, 87, 0.5), 0 0 32px -6px rgba(124, 255, 87, 0.55);
+  box-shadow: 0 0 0 1px rgba(124, 255, 87, 0.28), 0 0 22px -12px rgba(124, 255, 87, 0.35);
 }
 .glow-purple {
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.4), 0 0 30px -10px rgba(139, 92, 246, 0.45);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.25), 0 0 20px -12px rgba(139, 92, 246, 0.3);
 }
 .text-glow-neon {
   text-shadow: 0 0 18px rgba(124, 255, 87, 0.6);

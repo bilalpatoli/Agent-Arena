@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowUpRight, Trophy, Settings as SettingsIcon, Play } from "lucide-react";
 import { useArena } from "./use-arena";
-import { EmptyState, ErrorState, LoadingState, Panel, SectionTitle, StatusBadge } from "./ui";
+import { BTN_PRIMARY, EmptyState, ErrorState, LoadingState, Panel, SectionTitle, StatusBadge } from "./ui";
 import { AgentCard } from "./agent-card";
 import { AgentSubmissionForm } from "./agent-form";
 import { SkillLibrary, SkillTransferLog } from "./skill-library";
@@ -19,11 +19,7 @@ function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 const runCta = (run: () => void, running: boolean) => (
-  <button
-    onClick={run}
-    disabled={running}
-    className="mt-1 inline-flex items-center gap-2 rounded-lg bg-arena-purple px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-  >
+  <button onClick={run} disabled={running} className={`mt-1 ${BTN_PRIMARY}`}>
     <Play size={15} />
     Run Tournament
   </button>

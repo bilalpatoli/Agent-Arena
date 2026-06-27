@@ -5,7 +5,7 @@ import { Play, RotateCw, ShoppingCart, Trophy } from "lucide-react";
 import type { TournamentState } from "@/lib/arena/types";
 import { challengeCopy, isComplete, tournamentWinnerId } from "@/lib/arena/view";
 import { useArena } from "./use-arena";
-import { EmptyState, ErrorState, LoadingState, Panel, RunStatusBadge, SectionTitle } from "./ui";
+import { BTN_PRIMARY, EmptyState, ErrorState, LoadingState, Panel, RunStatusBadge, SectionTitle } from "./ui";
 import { AgentCard } from "./agent-card";
 import { ArenaBracket } from "./bracket";
 import { SkillPatchViewer } from "./patch";
@@ -24,11 +24,7 @@ export function TournamentDetail() {
         title="No tournament run yet"
         body="Run a tournament to generate the full story: rounds, winner, skill patch, and rerun."
         action={
-          <button
-            onClick={run}
-            disabled={running}
-            className="mt-1 inline-flex items-center gap-2 rounded-lg bg-arena-purple px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
+          <button onClick={run} disabled={running} className={`mt-1 ${BTN_PRIMARY}`}>
             <Play size={15} />
             Run Tournament
           </button>
@@ -83,13 +79,9 @@ function DetailHeader({
         <h1 className="text-2xl font-bold tracking-tight">Tournament run</h1>
         <p className="mt-1 text-sm text-arena-muted">{challengeCopy(state.taskId).name}</p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
         {phase !== "idle" && <RunStatusBadge phase={phase} />}
-        <button
-          onClick={onRun}
-          disabled={running}
-          className="inline-flex items-center gap-2 rounded-lg bg-arena-purple px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
+        <button onClick={onRun} disabled={running} className={BTN_PRIMARY}>
           {complete ? <RotateCw size={15} /> : <Play size={15} />}
           {running ? "Running…" : complete ? "Rerun Tournament" : "Run Tournament"}
         </button>
