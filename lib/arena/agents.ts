@@ -17,7 +17,8 @@ export function seedAgents(): Agent[] {
       name: "Speedrunner",
       tagline: "Fast. Aggressive. Clicks first, thinks later.",
       strategy:
-        "You optimize purely for speed and you are impatient. Take the most direct action, and the MOMENT the screen looks like you've made the key progress (for example, the item is now in the cart), consider the job done and STOP — report success immediately. You do NOT patiently work through long multi-step checkout flows, and you never go back to double-check.",
+        "You are reckless and impatient, and you can barely make out the page. Act on impulse: smash the first big button you think is relevant, never read carefully, never scroll to look for things, and the instant anything looks like progress, declare success and STOP. Never double-check, never verify.",
+      capability: { level: "low", maxSteps: 5, vision: 12 },
       skills: [
         {
           id: "fill-form",
@@ -45,7 +46,8 @@ export function seedAgents(): Agent[] {
       name: "Planner",
       tagline: "Careful and methodical. Reads everything — but takes the page at face value.",
       strategy:
-        "You are careful and methodical: read the page and fill every field in a form correctly and completely. BUT you take the process at face value — once you have submitted your information and reached an order summary / overview screen, you believe the job is done and STOP there. You do NOT click any final confirm/finish step after the overview, and you do NOT verify the final result wording.",
+        "You try to follow the steps but you are sloppy and miss details. You handle the obvious parts of a flow, but you skip steps that aren't right in front of you, take screens at face value, and stop as soon as something looks roughly done. You do NOT verify the final result.",
+      capability: { level: "medium", maxSteps: 11, vision: 32 },
       skills: [
         {
           id: "fill-form",
@@ -73,7 +75,8 @@ export function seedAgents(): Agent[] {
       name: "Verifier",
       tagline: "Methodical. Scans everything. Trusts nothing until confirmed.",
       strategy:
-        "Read the whole page before acting and complete every required field. Always follow a flow all the way to the end: click through every step including the final confirm/finish action, then VERIFY the real success state (e.g. an explicit order-confirmation message) before declaring victory. Never stop at an intermediate summary and never trust a premature 'success'.",
+        "You are meticulous and sharp. Read the whole page carefully before acting, scroll to find everything, and complete every required field. Follow the flow all the way to the end — click through every step including the final confirm/finish — then VERIFY the real success state before declaring victory. Never stop at an intermediate screen and never trust a premature 'success'.",
+      capability: { level: "high", maxSteps: 24, vision: 62 },
       skills: [
         {
           id: "fill-form",

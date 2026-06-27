@@ -27,6 +27,9 @@ export interface Agent {
   /** The agent's living skill set (from SKILL.md). Mutated by patches. */
   skills: Skill[];
   scoreHistory: number[];
+  /** Graded capability — how "smart" the agent is. Drives real handicaps:
+   *  maxSteps (action budget) and vision (screenshot JPEG quality it perceives). */
+  capability?: { level: "low" | "medium" | "high"; maxSteps: number; vision: number };
 }
 
 /** One concrete action an agent took against the challenge. */

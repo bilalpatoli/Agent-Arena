@@ -68,12 +68,15 @@ export async function runComputerUse(
     onEvent?: (e: CuEvent) => void;
     /** Lessons learned from prior attempts, injected into the system prompt. */
     extraInstructions?: string;
+    /** Screenshot JPEG quality the agent perceives (capability handicap). */
+    visionQuality?: number;
   } = {
     baseUrl: "http://localhost:3001",
   },
 ): Promise<ComputerUseResult> {
   const emit = (e: CuEvent) => opts.onEvent?.(e);
   const maxSteps = opts.maxSteps ?? DEFAULT_MAX_STEPS;
+  const vq = opts.visionQuality ?? 55;
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
   let browser: Browser | null = null;
@@ -107,7 +110,7 @@ export async function runComputerUse(
     let pendingResult: any[] | null = null; // function_result steps to send next turn
 
     for (let turn = 0; turn < maxSteps; turn++) {
-      const shot = await screenshot(page);
+      const shot = await screenshot(page, vq);
 
       const input = prevId
         ? pendingResult!
@@ -169,7 +172,7 @@ export async function runComputerUse(
         if (isDecoy(action, args, challenge)) clickedDecoy = true;
 
         const ok = await executeAction(page, action, args).catch(() => false);
-        const afterShot = await screenshot(page);
+        const afterShot = await screenshot(page, vq);
         if (opts.recordDir) {
           writeFileSync(
             join(opts.recordDir, `frame-${String(stepIndex).padStart(2, "0")}-${normalizeAction(action)}.jpg`),
@@ -200,7 +203,9 @@ export async function runComputerUse(
     let success: boolean;
     let judgeReason: string | undefined;
     if (challenge.useJudge) {
-      const verdict = await judgeOutcome(ai, await screenshot(page), challenge);
+      // Judge sees a full-quality screenshot — the vision handicap applies to the
+      // agent's perception, not to ground-truth scoring.
+      const verdict = await judgeOutcome(ai, await screenshot(page, 60), challenge);
       success = verdict.success;
       judgeReason = verdict.reason;
     } else {
@@ -302,9 +307,9 @@ function denorm(args: any): [number, number] {
 const BLANK_JPEG =
   "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8/wDFGKKK/9k=";
 
-async function screenshot(page: Page): Promise<string> {
+async function screenshot(page: Page, quality = 55): Promise<string> {
   try {
-    const buf = await page.screenshot({ type: "jpeg", quality: 55, timeout: 20000 });
+    const buf = await page.screenshot({ type: "jpeg", quality, timeout: 20000 });
     return buf.toString("base64");
   } catch {
     return BLANK_JPEG;
