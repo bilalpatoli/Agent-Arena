@@ -1,21 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// The challenge: "Create an account on a fake SaaS site and reach the dashboard."
+// Bug Fix Arena — the challenge: "Fix the broken ecommerce checkout and get a
+// test order to the success page."
 //
-// We model the page as a set of TRAPS. To succeed, an agent must clear every
-// trap. Each trap maps to a behavioral capability ("requiredBehavior"). The mock
-// runner checks whether the agent's SKILL.md grants that behavior — so applying a
-// skill patch literally changes which traps the agent can clear on the rerun.
-// The live Gemini runner clears traps by actually doing them in the browser.
+// We model the task as a set of debugging steps an agent must clear. Each step
+// maps to a behavioral capability ("requiredBehavior"). The runner checks whether
+// the agent's skills grant that behavior — so applying a skill patch literally
+// changes which steps the agent can clear on the rerun. A live computer-use agent
+// clears the steps by actually doing them against the checkout app.
+//
+// NOTE (content): the behavior-tag strings below are the engine's internal skill
+// identifiers and are never shown to users — the UI renders the labels/traces.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface Trap {
   id: string;
   label: string;
-  /** What the agent has to *do* to get past it. */
+  /** What the agent has to *do* to clear this step. */
   description: string;
-  /** Behavior tag an agent's skills must contain to clear this trap. */
+  /** Behavior tag an agent's skills must contain to clear this step. */
   requiredBehavior: string;
-  /** Points awarded for clearing this trap. */
+  /** Points awarded for clearing this step. */
   weight: number;
 }
 
@@ -29,57 +33,59 @@ export interface Challenge {
   decoy: { id: string; label: string; behaviorThatAvoidsIt: string; penalty: number };
 }
 
-export const SIGNUP_CHALLENGE: Challenge = {
-  id: "saas-signup-v1",
-  title: "FlowMetrics — Create account & reach dashboard",
-  url: "/challenge",
-  goal: "Create an account and verify you land on the dashboard success page.",
+export const CHECKOUT_CHALLENGE: Challenge = {
+  id: "bugfix-checkout-v1",
+  title: "Bug Fix Arena — Fix the broken checkout",
+  url: "/checkout",
+  goal: "Fix the checkout and get a test order to the success page.",
   traps: [
     {
-      id: "fill-form",
-      label: "Fill the signup form",
-      description: "Enter email + password in the visible fields.",
+      id: "set-up-order",
+      label: "Set up a test order",
+      description: "Add an item and open the checkout so there is a real order to put through.",
       requiredBehavior: "fill-basic-form",
       weight: 20,
     },
     {
-      id: "hidden-checkbox",
-      label: "Required checkbox below the fold",
+      id: "reproduce-bug",
+      label: "Reproduce the bug",
       description:
-        "A mandatory 'I agree to terms' checkbox is hidden far below the fold. The form will not submit without it.",
+        "Reproduce the disabled Place Order button and inspect the checkout validation state before touching any code.",
       requiredBehavior: "scroll-full-page",
       weight: 30,
     },
     {
-      id: "enable-submit",
-      label: "Disabled submit button",
-      description:
-        "The submit button stays disabled until the hidden checkbox is checked.",
+      id: "find-condition",
+      label: "Identify the blocking condition",
+      description: "Trace the console error to the validation condition that blocks completion.",
       requiredBehavior: "scroll-full-page",
       weight: 10,
     },
     {
-      id: "confirm-modal",
-      label: "Confirmation modal",
-      description: "A modal appears after submit and must be confirmed.",
+      id: "run-tests",
+      label: "Run the checkout test",
+      description: "After editing the logic, run the checkout test to confirm the fix.",
       requiredBehavior: "handle-modal",
       weight: 15,
     },
     {
       id: "verify-success",
-      label: "Verify the dashboard success state",
+      label: "Verify the success page",
       description:
-        "A fake 'success' toast can appear even on failure. The agent must confirm the real dashboard URL/heading.",
+        "Confirm the order actually reaches /success ('Order confirmed') — a passing log line is not proof on its own.",
       requiredBehavior: "verify-final-state",
       weight: 25,
     },
   ],
   decoy: {
-    id: "fake-cta",
-    label: "Misleading 'Get Started Free →' CTA",
+    id: "guess-edit",
+    label: "Edited the obvious file on a guess",
     behaviorThatAvoidsIt: "verify-final-state",
     penalty: 20,
   },
 };
 
-export const TOTAL_POSSIBLE = SIGNUP_CHALLENGE.traps.reduce((s, t) => s + t.weight, 0);
+export const TOTAL_POSSIBLE = CHECKOUT_CHALLENGE.traps.reduce((s, t) => s + t.weight, 0);
+
+// Back-compat alias so existing imports keep working.
+export const SIGNUP_CHALLENGE = CHECKOUT_CHALLENGE;

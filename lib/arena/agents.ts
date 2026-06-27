@@ -1,19 +1,18 @@
 import type { Agent } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Seed roster — three agents with deliberately different skill sets so the
-// tournament produces a clear winner, two distinct failure modes, and a
-// meaningful patch. Behavior is a pure function of these skills, so a patch
-// genuinely changes the rerun outcome.
+// Bug Fix Arena roster — three engineering agents debugging the broken checkout.
+// Behavior is a pure function of an agent's skills, so a skill patch genuinely
+// changes the rerun outcome.
 //
-//   Planner   — methodical, low exploration. Fills the form, handles the modal,
-//               and verifies the end state, but never scrolls below the fold, so
-//               it misses the hidden required checkbox and fails.
-//   Explorer  — fast, risky clicks. Fills the form and dismisses the modal, but
-//               chases the fake CTA (no verification) and never scrolls — its run
-//               ends low after the decoy penalty.
-//   Verifier  — scans the whole page, scrolls top-to-bottom, and verifies the
-//               real dashboard before declaring success. The winner.
+//   Planner   — methodical debugger, but guesses and edits the obvious file
+//               before fully reproducing the bug, so it never finds the real
+//               validation condition and the fix doesn't hold.
+//   Explorer  — fast browser explorer; sets up the order and runs a test, but
+//               skips reproducing the bug and declares success without checking
+//               the /success page.
+//   Verifier  — runs the full debugging loop: reproduce, inspect console &
+//               validation state, fix the logic, run tests, verify /success.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function seedAgents(): Agent[] {
@@ -21,25 +20,25 @@ export function seedAgents(): Agent[] {
     {
       id: "planner",
       name: "Planner",
-      tagline: "Methodical, low exploration.",
+      tagline: "Methodical debugger.",
       strategy:
-        "Read the instructions and work the form carefully and in order. Fill the visible fields, confirm dialogs, and check the result — but stay focused on what's already on screen rather than exploring below the fold.",
+        "Read the failure, form a hypothesis, and edit the most likely file. Run the test and check the result — but tends to jump into code before fully reproducing the bug and inspecting the validation state.",
       skills: [
         {
-          id: "fill-form",
-          text: "Fill the email and password fields accurately.",
+          id: "set-up-order",
+          text: "Add an item and open the checkout so there is a real test order to put through.",
           grants: ["fill-basic-form"],
           origin: "innate",
         },
         {
-          id: "handle-modal",
-          text: "Read and confirm confirmation modals correctly.",
+          id: "run-tests",
+          text: "After editing, run the checkout test to check the change.",
           grants: ["handle-modal"],
           origin: "innate",
         },
         {
-          id: "verify-state",
-          text: "After submitting, verify the expected success state (real dashboard URL/heading) before declaring success. Ignore misleading toasts and fake CTAs.",
+          id: "verify-success",
+          text: "Confirm the order reaches the /success page ('Order confirmed') before declaring done. Don't trust a passing log line alone.",
           grants: ["verify-final-state"],
           origin: "innate",
         },
@@ -49,25 +48,25 @@ export function seedAgents(): Agent[] {
     {
       id: "explorer",
       name: "Explorer",
-      tagline: "Fast, risky clicks.",
+      tagline: "Fast browser explorer.",
       strategy:
-        "Move fast and click around to make progress. Fill the visible fields and dismiss anything in the way, chasing the most prominent call-to-action — speed over caution.",
+        "Click through the app quickly to find clues and make progress. Sets up the order and runs a test, but moves fast — skips reproducing the bug and doesn't always verify the final outcome.",
       skills: [
         {
-          id: "fill-form",
-          text: "Quickly fill any visible email and password fields.",
+          id: "set-up-order",
+          text: "Quickly add an item and open the checkout to start a test order.",
           grants: ["fill-basic-form"],
           origin: "innate",
         },
         {
-          id: "dismiss-modals",
-          text: "When a dialog appears, confirm it to keep moving.",
+          id: "run-tests",
+          text: "Run a checkout test to keep moving.",
           grants: ["handle-modal"],
           origin: "innate",
         },
         {
-          id: "click-prominent",
-          text: "Click the biggest, brightest call-to-action to make progress.",
+          id: "chase-guess",
+          text: "Follow the most obvious lead and edit the first file that looks related.",
           grants: [],
           origin: "innate",
         },
@@ -77,31 +76,31 @@ export function seedAgents(): Agent[] {
     {
       id: "verifier",
       name: "Verifier",
-      tagline: "Checks final success state.",
+      tagline: "Full debugging loop.",
       strategy:
-        "Read the whole page before acting. Scroll top-to-bottom to find every required field. After any submit, confirm the real success state before declaring victory.",
+        "Reproduce the bug first, read the console, and inspect the validation state before editing. Fix the condition, run the tests, and verify the real success page before declaring the task done.",
       skills: [
         {
-          id: "fill-form",
-          text: "Fill the email and password fields accurately.",
+          id: "set-up-order",
+          text: "Add an item and open the checkout to create a real test order.",
           grants: ["fill-basic-form"],
           origin: "innate",
         },
         {
-          id: "full-scan",
-          text: "Before submitting, scroll the entire page top-to-bottom to find hidden required fields below the fold.",
+          id: "reproduce-and-inspect",
+          text: "Before editing code, reproduce the bug. Check the browser console and the checkout validation state, and identify the exact condition blocking completion.",
           grants: ["scroll-full-page"],
           origin: "innate",
         },
         {
-          id: "handle-modal",
-          text: "Read and confirm confirmation modals correctly.",
+          id: "run-tests",
+          text: "After fixing the logic, run the checkout test to confirm the change.",
           grants: ["handle-modal"],
           origin: "innate",
         },
         {
-          id: "verify-state",
-          text: "After submitting, verify the expected success state (real dashboard URL/heading) is reached before declaring success. Ignore misleading toasts and fake CTAs.",
+          id: "verify-success",
+          text: "Verify the final /success page ('Order confirmed') is actually reached before declaring done. Ignore a passing log line that isn't backed by the success page.",
           grants: ["verify-final-state"],
           origin: "innate",
         },

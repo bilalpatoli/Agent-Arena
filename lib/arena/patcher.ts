@@ -78,10 +78,10 @@ export function applyPatch(loser: Agent, patch: SkillPatch, behaviors: string[])
 
 function describeBehaviors(behaviors: string[]): string {
   const map: Record<string, string> = {
-    "scroll-full-page": "Scrolls the full page to find hidden required fields below the fold",
-    "verify-final-state": "Verifies the real success state instead of trusting fake toasts/CTAs",
-    "handle-modal": "Handles confirmation modals correctly",
-    "fill-basic-form": "Fills the signup form accurately",
+    "scroll-full-page": "Reproduces the bug and inspects the console & validation state before editing code",
+    "verify-final-state": "Verifies the real /success page instead of trusting a passing log line",
+    "handle-modal": "Runs the checkout test after editing",
+    "fill-basic-form": "Sets up a real test order",
   };
   return behaviors.map((b) => map[b] ?? b).join("; ");
 }
