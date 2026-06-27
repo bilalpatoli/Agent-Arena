@@ -32,6 +32,11 @@ export function getState(): TournamentState {
   return state();
 }
 
+/** Replace the active tournament (used by the live "paste a URL" custom run). */
+export function setActiveTournament(t: TournamentState): void {
+  g.__arena = t;
+}
+
 export function resetArena(): TournamentState {
   g.__arena = makeTournament(challenge());
   return g.__arena;
