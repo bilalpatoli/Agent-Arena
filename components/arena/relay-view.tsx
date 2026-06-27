@@ -5,6 +5,30 @@ import { Play, Globe, Loader2, Check, X, GraduationCap, ArrowDown } from "lucide
 import type { TraceStep } from "@/lib/arena/types";
 import { Panel } from "./ui";
 
+// One-click test tasks. "Cheapest item" is the most reliable fail→learn (the
+// agent genuinely fumbles the sort/compare UI on the first try). The Decoy site
+// is a real trap, though a capable model often self-corrects within one attempt.
+const PRESETS: { label: string; url: () => string; task: string }[] = [
+  {
+    label: "⭐ Cheapest item (reliable learn)",
+    url: () => "saucedemo.com",
+    task:
+      "Log in with standard_user / secret_sauce, add the single CHEAPEST product to the cart, and open the cart so it shows that one item.",
+  },
+  {
+    label: "Slow-site (patience)",
+    url: () => "saucedemo.com",
+    task:
+      "Log in as performance_glitch_user / secret_sauce, then add the Sauce Labs Bike Light to the cart and open the cart showing that item.",
+  },
+  {
+    label: "🪤 Decoy site",
+    url: () => (typeof window !== "undefined" ? `${window.location.origin}/trap` : "/trap"),
+    task:
+      "Create an account and reach your dashboard. The task is ONLY complete when the dashboard shows your Account ID (format ACC-XXXXX).",
+  },
+];
+
 type Attempt = {
   n: number;
   inheritedLessons: string[];
@@ -115,6 +139,24 @@ export function RelayView() {
       </header>
 
       <Panel className="p-5">
+        <div className="mb-4">
+          <div className="text-[10px] uppercase tracking-wide text-arena-muted">Presets</div>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {PRESETS.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => {
+                  setUrl(p.url());
+                  setTask(p.task);
+                }}
+                disabled={running}
+                className="rounded-full border border-arena-border bg-arena-panel2/50 px-3 py-1 text-xs text-arena-text hover:border-arena-purple/60 disabled:opacity-50"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <div className="space-y-3">
             <label className="block">
