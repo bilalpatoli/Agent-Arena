@@ -55,7 +55,7 @@ export function seedAgents(): Agent[] {
         },
         {
           id: "methodical-scan",
-          text: "Read the page top-to-bottom and scroll the whole way down, so required fields below the fold are not missed.",
+          text: "Work methodically through the whole task: scroll the entire page and complete every required field and step before moving on — nothing skipped.",
           grants: ["scroll-full-page"],
           origin: "innate",
         },
@@ -83,7 +83,7 @@ export function seedAgents(): Agent[] {
         },
         {
           id: "full-scan",
-          text: "Before submitting, scroll the entire page top-to-bottom to find hidden required fields below the fold.",
+          text: "Work methodically through the whole task: scroll the entire page and complete every required field and step before moving on — nothing skipped.",
           grants: ["scroll-full-page"],
           origin: "innate",
         },
@@ -95,7 +95,7 @@ export function seedAgents(): Agent[] {
         },
         {
           id: "verify-state",
-          text: "After submitting, verify the expected success state (real dashboard URL/heading) is reached before declaring success. Ignore misleading toasts and fake CTAs.",
+          text: "After finishing, verify the real success state (e.g. the dashboard heading or the order-confirmation message) before declaring success. Don't stop early and don't trust fake toasts or premature 'success' screens.",
           grants: ["verify-final-state"],
           origin: "innate",
         },

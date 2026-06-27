@@ -39,6 +39,34 @@ fast, reliable, tells the full Round 1 → Patch → Round 2 story every time.
    `npx tsx scripts/live-test.ts verifier` (captures frames + video when the key
    has quota).
 
+## Real-site demo (saucedemo.com) — capture & replay
+
+The headline framing is **self-improving computer-use agents** on a *real website*.
+The agents complete a checkout on saucedemo.com via live Gemini computer-use. To
+keep that bulletproof on stage, we **capture once, replay forever**:
+
+1. **Capture** (needs quota — billing-enabled key, or wait for free-tier reset):
+   ```bash
+   npm run dev                          # serves nothing site-side, but capture needs a base url
+   npx tsx scripts/capture.ts saucedemo # resume-friendly: re-run until all 6 runs captured
+   ```
+   Writes `data/trajectories/saucedemo-checkout-v1/<agent>-r{1,2}.json` (real
+   screenshots inline) + frames/video under `public/live-trace/`.
+
+2. **Replay** (deterministic, offline — what runs on stage):
+   ```bash
+   ARENA_CHALLENGE=saucedemo npm run dev   # the demo now serves the captured real runs
+   ```
+   `makeRunner()` auto-selects `ReplayRunner` for a real challenge once trajectories
+   exist. Zero live API calls, nothing can 429 or hang.
+
+The loop (judge → patch → rerun → improvement) and the whole UI are identical
+between synthetic and real — only the *source* of the `Run` objects changes.
+
+> Until real trajectories are captured, generate placeholders to exercise the
+> pipeline/UI: `npx tsx scripts/make-fixtures.ts` (marked `placeholder`,
+> gitignored — never shipped as if real).
+
 ## Going live with Gemini (full live tournament)
 
 The live path is **built and proven** (`lib/arena/computerUse.ts`): the real
