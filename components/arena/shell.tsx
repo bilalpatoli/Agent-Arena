@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Swords, Trophy, Users, GitMerge, Settings, Radio, type LucideIcon } from "lucide-react";
+import { Swords, Trophy, Users, GitMerge, Settings, Radio, GraduationCap, type LucideIcon } from "lucide-react";
 import { ArenaLogo } from "@/components/ArenaLogo";
 
 const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Arena", icon: Swords },
   { href: "/live", label: "Live Arena", icon: Radio },
+  { href: "/relay", label: "Relay (Learning)", icon: GraduationCap },
   { href: "/tournaments", label: "Tournaments", icon: Trophy },
   { href: "/agents", label: "Agents", icon: Users },
   { href: "/patches", label: "Skill Library", icon: GitMerge },
