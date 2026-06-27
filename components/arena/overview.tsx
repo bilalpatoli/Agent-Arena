@@ -46,7 +46,7 @@ export function TournamentOverview() {
       )}
 
       {status === "ready" && snapshot && (
-        <div className="space-y-6">
+        <div className={`space-y-6 transition-opacity duration-300 ${running ? "opacity-50" : ""}`}>
           {/* Active / latest tournament */}
           <ActiveTournamentCard state={snapshot.state} phase={phase} running={running} />
 
