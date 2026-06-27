@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "loop": "tsx scripts/run-loop.ts"
+    "loop": "tsx scripts/run-loop.ts",
+    "test": "tsx scripts/test-live.ts"
   },
   "dependencies": {
     "@google/genai": "^2.10.0",

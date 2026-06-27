@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       try {
         await runCustomTournament(challenge, send);
       } catch (err) {
-        send({ type: "error", message: (err as Error).message });
+        send({ type: "error", message: (err as Error).message, fatal: true, errorCode: "STREAM_ERROR" });
       } finally {
         controller.close();
       }

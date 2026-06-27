@@ -19,6 +19,8 @@ const config: Config = {
           neon: "#7cff57",
           neonDim: "#3f6b34",
           fail: "#b794f4",
+          red: "#f0717f",
+          amber: "#f0b24a",
           text: "#e8e8f0",
           muted: "#8b8b9e",
         },

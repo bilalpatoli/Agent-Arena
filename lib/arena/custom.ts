@@ -1,4 +1,4 @@
-import type { Run, TournamentState, TraceStep } from "./types";
+import type { Agent, Run, TournamentState, TraceStep } from "./types";
 import type { Challenge } from "./challenge";
 import { seedAgents } from "./agents";
 import { runComputerUse } from "./computerUse";
@@ -6,31 +6,32 @@ import { resultToRun } from "./geminiRunner";
 import { pickWinner } from "./judge";
 import { evolve, makeTournament } from "./orchestrator";
 import { setActiveTournament } from "./store";
+import { classifyError, type LiveArenaEvent, type RunSummary } from "./liveEvents";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Live "paste a URL" mode: run the 3 agents against a user-supplied website with
-// real Gemini computer-use, stream progress, judge the winner with an LLM judge,
-// and generate the skill patches the winner would teach. One round (fast +
-// coherent on arbitrary sites); the curated saucedemo demo keeps the full
-// evolve+rerun arc. Requires a live key — there is no replay for a fresh URL.
+// real Gemini computer-use, stream structured progress, judge the winner, and
+// generate the skill patches the winner would teach.
+//
+// Failure contract: every agent that STARTS always emits a terminal `agent-done`.
+// A thrown error becomes a real failed run (agent-error + agent-done, partial
+// trace preserved) and the tournament continues. Generic `error` is reserved for
+// run-level fatal failures (missing key, no agents) before/around the loop.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type CustomEvent =
-  | { type: "status"; message: string }
-  | { type: "agent-start"; agentId: string; agentName: string }
-  | { type: "step"; agentId: string; step: TraceStep }
-  | { type: "agent-done"; agentId: string; run: Run }
-  | { type: "winner"; agentId: string }
-  | { type: "patch"; sourceWinner: string; targets: string[]; behavior: string }
-  | { type: "complete" }
-  | { type: "error"; message: string };
+export type { LiveArenaEvent } from "./liveEvents";
+// Back-compat alias for existing imports.
+export type CustomEvent = LiveArenaEvent;
+
+type Runner = typeof runComputerUse;
 
 export async function runCustomTournament(
   challenge: Challenge,
-  emit: (e: CustomEvent) => void,
+  emit: (e: LiveArenaEvent) => void,
+  runner: Runner = runComputerUse,
 ): Promise<void> {
   if (!process.env.GEMINI_API_KEY) {
-    emit({ type: "error", message: "GEMINI_API_KEY is not set — live runs need a Gemini key." });
+    emit({ type: "error", message: "GEMINI_API_KEY is not set — live runs need a Gemini key.", fatal: true, errorCode: "NO_API_KEY" });
     return;
   }
 
@@ -38,61 +39,109 @@ export async function runCustomTournament(
   state.agents = seedAgents();
   setActiveTournament(state); // so GET /api/arena reflects the live run as it builds
 
+  if (state.agents.length === 0) {
+    emit({ type: "error", message: "No agents are configured for the arena.", fatal: true, errorCode: "NO_AGENTS" });
+    return;
+  }
+
+  emit({ type: "run-started", runId: `${challenge.id}-${Date.now()}`, task: challenge.goal, url: challenge.url });
+
   const runs: Run[] = [];
-  emit({ type: "status", message: `Starting live arena on ${challenge.url}` });
 
   for (const agent of state.agents) {
-    emit({ type: "agent-start", agentId: agent.id, agentName: agent.name });
+    emit({ type: "agent-started", agentId: agent.id, agentName: agent.name });
+    const collected: TraceStep[] = []; // retained so a thrown error keeps its partial trace
+    const t0 = Date.now();
     try {
-      const t0 = Date.now();
-      const result = await runComputerUse(agent, challenge, {
+      const result = await runner(agent, challenge, {
         baseUrl: challenge.url,
         maxSteps: 20,
         onEvent: (e) => {
-          if (e.kind === "step") emit({ type: "step", agentId: agent.id, step: e.step });
-          else emit({ type: "status", message: `${agent.name}: ${e.message}` });
+          if (e.kind === "step") {
+            collected.push(e.step);
+            emit({ type: "agent-step", agentId: agent.id, agentName: agent.name, step: e.step });
+          } else {
+            emit({ type: "status", message: `${agent.name}: ${e.message}` });
+          }
         },
       });
       const run = resultToRun(agent, challenge, 1, result, Date.now() - t0);
       runs.push(run);
       agent.scoreHistory.push(run.score);
-      // push into the round so the live snapshot updates incrementally
       upsertRound(state, runs);
-      emit({ type: "agent-done", agentId: agent.id, run });
+      emit({ type: "agent-done", agentId: agent.id, agentName: agent.name, run });
     } catch (err) {
-      emit({ type: "error", message: `${agent.name} failed: ${(err as Error).message}` });
+      // A thrown agent error becomes a real failed run (never a generic stream
+      // error). The tournament keeps going with the next agent.
+      const message = (err as Error).message || "Agent run failed";
+      const run = buildFailedRun(agent, challenge, collected, message, Date.now() - t0);
+      runs.push(run);
+      agent.scoreHistory.push(0);
+      upsertRound(state, runs);
+      emit({ type: "agent-error", agentId: agent.id, agentName: agent.name, message, errorCode: classifyError(message), fatal: false });
+      emit({ type: "agent-done", agentId: agent.id, agentName: agent.name, run });
     }
   }
 
-  if (runs.length === 0) {
-    emit({ type: "error", message: "No agent runs completed." });
-    return;
+  // Winner = best successful run; null if every agent failed (a valid result, not
+  // a fatal error).
+  const successful = runs.filter((r) => r.result === "success");
+  const winnerRun = successful.length ? pickWinner(successful) : null;
+  const winnerAgent = winnerRun ? state.agents.find((a) => a.id === winnerRun.agentId) ?? null : null;
+  finalizeRound(state, runs, winnerRun?.agentId ?? runs[0]?.agentId ?? "");
+
+  // Skill patches the winner would teach (only when there is a winner). A
+  // patch-generation hiccup must not fail the whole stream.
+  if (winnerAgent) {
+    try {
+      for (const p of evolve(state, challenge)) {
+        emit({ type: "patch", sourceWinner: p.sourceWinner, targets: p.targetAgents, behavior: p.winningBehavior });
+      }
+    } catch {
+      /* non-fatal */
+    }
   }
 
-  const winner = pickWinner(runs);
-  finalizeRound(state, runs, winner.agentId);
-  emit({ type: "winner", agentId: winner.agentId });
-
-  // Generate the patches the winner would teach the losers (instant, no extra runs).
-  const patches = evolve(state, challenge);
-  for (const p of patches) {
-    emit({ type: "patch", sourceWinner: p.sourceWinner, targets: p.targetAgents, behavior: p.winningBehavior });
-  }
+  const summary: RunSummary = {
+    totalAgents: state.agents.length,
+    successCount: successful.length,
+    failureCount: runs.length - successful.length,
+    interruptedCount: 0, // backend never interrupts; stream-disconnect interruptions are tracked client-side
+  };
 
   setActiveTournament(state);
-  emit({ type: "complete" });
+  emit({
+    type: "run-done",
+    status: "completed",
+    winnerAgentId: winnerAgent?.id ?? null,
+    winnerAgentName: winnerAgent?.name ?? null,
+    summary,
+    runs,
+  });
+}
+
+function buildFailedRun(agent: Agent, challenge: Challenge, steps: TraceStep[], message: string, durationMs: number): Run {
+  // Preserve the partial trace and append the failure as a final step.
+  const withError: TraceStep[] = [...steps, { index: steps.length, action: "error", description: message, ok: false }];
+  return {
+    agentId: agent.id,
+    taskId: challenge.id,
+    round: 1,
+    steps: withError,
+    finalState: "failed",
+    result: "fail",
+    score: 0,
+    failureReason: message,
+    signalTrait: `Failed: ${message}`,
+    source: "gemini",
+    durationMs,
+  };
 }
 
 function upsertRound(state: TournamentState, runs: Run[]) {
   const existing = state.rounds.find((r) => r.round === 1);
   if (existing) existing.runs = [...runs];
-  else
-    state.rounds.push({
-      round: 1,
-      taskId: state.taskId,
-      runs: [...runs],
-      winnerId: runs[0].agentId,
-    });
+  else state.rounds.push({ round: 1, taskId: state.taskId, runs: [...runs], winnerId: runs[0].agentId });
 }
 
 function finalizeRound(state: TournamentState, runs: Run[], winnerId: string) {
