@@ -33,13 +33,24 @@ export interface ComputerUseResult {
   finalState: string;
 }
 
+/** Live progress event for streaming a run to the UI. */
+export type CuEvent =
+  | { kind: "status"; message: string }
+  | { kind: "step"; step: TraceStep };
+
 export async function runComputerUse(
   agent: Agent,
   challenge: Challenge,
-  opts: { baseUrl: string; maxSteps?: number; recordDir?: string } = {
+  opts: {
+    baseUrl: string;
+    maxSteps?: number;
+    recordDir?: string;
+    onEvent?: (e: CuEvent) => void;
+  } = {
     baseUrl: "http://localhost:3001",
   },
 ): Promise<ComputerUseResult> {
+  const emit = (e: CuEvent) => opts.onEvent?.(e);
   const maxSteps = opts.maxSteps ?? DEFAULT_MAX_STEPS;
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -61,6 +72,7 @@ export async function runComputerUse(
     // NOT "networkidle": the Next dev HMR websocket keeps the network busy forever.
     await page.goto(startUrl, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
+    emit({ kind: "status", message: `opened ${startUrl}` });
 
     let prevId: string | undefined;
     let pendingResult: any[] | null = null; // function_result steps to send next turn
@@ -105,8 +117,11 @@ export async function runComputerUse(
 
       if (calls.length === 0) {
         // Model produced no action → it considers the task finished.
-        if (reasoning)
-          steps.push(mk(stepIndex++, "done", reasoning.slice(0, 200), undefined, shot, true));
+        if (reasoning) {
+          const s = mk(stepIndex++, "done", reasoning.slice(0, 200), undefined, shot, true);
+          steps.push(s);
+          emit({ kind: "step", step: s });
+        }
         break;
       }
 
@@ -126,9 +141,9 @@ export async function runComputerUse(
             Buffer.from(afterShot, "base64"),
           );
         }
-        steps.push(
-          mk(stepIndex++, normalizeAction(action), intent, targetFromArgs(args), afterShot, ok),
-        );
+        const tstep = mk(stepIndex++, normalizeAction(action), intent, targetFromArgs(args), afterShot, ok);
+        steps.push(tstep);
+        emit({ kind: "step", step: tstep });
 
         pendingResult.push({
           type: "function_result",
@@ -140,13 +155,16 @@ export async function runComputerUse(
           ],
         });
 
-        if (await reachedSuccess(page, challenge)) break;
+        // Judge-based challenges run to completion, then judge once at the end.
+        if (!challenge.useJudge && (await reachedSuccess(page, challenge))) break;
       }
 
-      if (await reachedSuccess(page, challenge)) break;
+      if (!challenge.useJudge && (await reachedSuccess(page, challenge))) break;
     }
 
-    const success = await reachedSuccess(page, challenge);
+    const success = challenge.useJudge
+      ? await judgeSuccess(ai, await screenshot(page), challenge)
+      : await reachedSuccess(page, challenge);
     return {
       steps,
       success,
@@ -237,9 +255,50 @@ function denorm(args: any): [number, number] {
   return [Math.round((nx / 1000) * VIEWPORT.width), Math.round((ny / 1000) * VIEWPORT.height)];
 }
 
+// 1x1 grey jpeg — last-resort placeholder if a screenshot can't be taken, so a
+// single slow frame (e.g. fonts never settling) can't kill an entire run.
+const BLANK_JPEG =
+  "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8/wDFGKKK/9k=";
+
 async function screenshot(page: Page): Promise<string> {
-  const buf = await page.screenshot({ type: "jpeg", quality: 55 });
-  return buf.toString("base64");
+  try {
+    const buf = await page.screenshot({ type: "jpeg", quality: 55, timeout: 20000 });
+    return buf.toString("base64");
+  } catch {
+    return BLANK_JPEG;
+  }
+}
+
+/** Gemini LLM judge: did the agent accomplish the task? Looks at the final
+ *  screenshot + the goal. Used for arbitrary user-supplied sites. */
+async function judgeSuccess(ai: GoogleGenAI, finalShot: string, challenge: Challenge): Promise<boolean> {
+  try {
+    const res: any = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text:
+                `An autonomous web agent was given this task:\n"${challenge.goal}"\n\n` +
+                `This is the final screenshot of the browser. Did the agent SUCCESSFULLY complete the task? ` +
+                `Be strict: only "yes" if the screen clearly shows the task is done. ` +
+                `Answer with JSON: {"success": true|false, "reason": "<short>"}.`,
+            },
+            { inlineData: { mimeType: "image/jpeg", data: finalShot } },
+          ],
+        },
+      ],
+      config: { responseMimeType: "application/json" },
+    });
+    const text = res.text ?? res.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const m = String(text).match(/\{[\s\S]*\}/);
+    return m ? Boolean(JSON.parse(m[0]).success) : false;
+  } catch (err) {
+    dbg(`judge failed: ${(err as Error).message}`);
+    return false;
+  }
 }
 
 async function reachedSuccess(page: Page, challenge: Challenge): Promise<boolean> {

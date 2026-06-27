@@ -39,6 +39,40 @@ export interface Challenge {
   credentials?: { username: string; password: string };
   /** Step-by-step task spec injected into the live agent prompt. */
   taskSpec?: string;
+  /** When true, success is decided by a Gemini LLM judge on the final screenshot
+   *  (used for arbitrary user-supplied sites where we can't hardcode successText). */
+  useJudge?: boolean;
+}
+
+/** Build a one-off challenge from a user-pasted URL + plain-English task. */
+export function buildCustomChallenge(input: {
+  url: string;
+  task: string;
+  credentials?: { username: string; password: string };
+}): Challenge {
+  const url = /^https?:\/\//i.test(input.url) ? input.url : `https://${input.url}`;
+  let host = url;
+  try {
+    host = new URL(url).host;
+  } catch {
+    /* keep raw */
+  }
+  return {
+    id: `custom-${slug(host)}`,
+    title: `${host} — ${input.task.slice(0, 60)}`,
+    url,
+    kind: "real",
+    goal: input.task,
+    credentials: input.credentials,
+    taskSpec: `Site: ${host}. Accomplish the goal on this live website. Dismiss cookie/consent banners and popups as needed.`,
+    useJudge: true,
+    traps: [],
+    decoy: { id: "none", label: "", behaviorThatAvoidsIt: "verify-final-state", penalty: 0 },
+  };
+}
+
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 }
 
 export const SIGNUP_CHALLENGE: Challenge = {
