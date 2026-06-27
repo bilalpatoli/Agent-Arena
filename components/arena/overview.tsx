@@ -14,7 +14,13 @@ export function TournamentOverview() {
 
   return (
     <div className="space-y-6">
-      <ArenaHeader running={running} phase={phase} onRun={run} live={snapshot?.live} />
+      <ArenaHeader
+        running={running}
+        phase={phase}
+        onRun={run}
+        live={snapshot?.live}
+        source={snapshot?.state.rounds[0]?.runs[0]?.source}
+      />
 
       {status === "loading" && <LoadingState />}
       {status === "error" && <ErrorState error={error} onRetry={reload} />}
@@ -55,12 +61,23 @@ function ArenaHeader({
   phase,
   onRun,
   live,
+  source,
 }: {
   running: boolean;
   phase: RunPhase;
   onRun: () => void;
   live?: boolean;
+  source?: string;
 }) {
+  // Accurately label the run source: live Gemini calls vs replayed Gemini
+  // captures vs the deterministic engine.
+  const mode = live
+    ? { label: "Live · Gemini", neon: true, live: true }
+    : source === "gemini"
+      ? { label: "Replay · Gemini", neon: true, live: false }
+      : source
+        ? { label: "Mock engine", neon: false, live: false }
+        : { label: "Engine ready", neon: false, live: false };
   return (
     <header className="flex flex-col gap-4 border-b border-arena-border pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -69,12 +86,10 @@ function ArenaHeader({
       </div>
       <div className="flex flex-wrap items-center gap-3">
         {phase !== "idle" && <RunStatusBadge phase={phase} />}
-        {live !== undefined && (
-          <span className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${live ? "border-arena-neon/50 text-arena-neon" : "border-arena-border text-arena-muted"}`}>
-            <Radio size={13} className={live ? "pulse-soft" : ""} />
-            {live ? "Live · Gemini" : "Live · engine"}
-          </span>
-        )}
+        <span className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${mode.neon ? "border-arena-neon/50 text-arena-neon" : "border-arena-border text-arena-muted"}`}>
+          <Radio size={13} className={mode.live ? "pulse-soft" : ""} />
+          {mode.label}
+        </span>
         <Link
           href="/tournament"
           className="inline-flex items-center gap-1.5 rounded-lg border border-arena-border px-4 py-2 text-sm font-semibold text-arena-text hover:border-arena-purple/60"
