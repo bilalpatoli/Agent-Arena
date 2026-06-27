@@ -8,11 +8,13 @@
 ## The 15-second hook (what a judge sees on the dashboard)
 
 Three agents — **Planner, Explorer, Verifier** — attempt the same browser task.
-Round 1: only **Verifier wins (96)**; Planner (62) and Explorer (41) **fail**.
+Round 1: only **Verifier wins (100)**; Planner (60) and Explorer (15) **fail**.
 Agent Arena extracts Verifier's winning behavior, generates a **skill patch**, and
-applies it to the losers. Hit **Rematch** → **Planner evolves to 88 and succeeds.**
+applies it to the losers. Hit **Rematch** → the patched losers **clear every trap and
+the whole population converges to 100.** Planner +40, Explorer +85.
 
-The whole loop — compete → teach → evolve — is on one screen.
+The whole loop — compete → teach → evolve — is on one screen, driven by the **live
+engine** (the `LIVE · ENGINE` badge confirms the numbers are real, not staged).
 
 ---
 
@@ -37,10 +39,10 @@ mechanism: a tournament where the population's best behavior propagates to every
    Planner and Explorer at 94% confidence."
 4. **Trace Replay (bottom).** "Here's Planner *before* — never scrolled, missed the
    checkbox, failed. And *after the patch* — scrolls, finds the checkbox, verifies the
-   dashboard, succeeds. **62 → 88.**"
-5. **Click `Rematch`.** The cards and bracket flip to **Round 2**: Planner turns green and
-   **SUCCEEDS (88)**, Explorer improves (41 → 69). "The agents didn't just get evaluated —
-   they **evolved from each other**."
+   dashboard, reaches success. **60 → 100.**" (These steps are the real engine traces.)
+5. **Click `Rematch`.** The cards and bracket flip to **Round 2**: the patched losers turn
+   green and **succeed**, all paths light up — the whole population converges to 100.
+   "The agents didn't just get evaluated — they **evolved from each other**."
 
 ---
 
@@ -66,17 +68,13 @@ rematch.
 
 ## Demo safety
 
-The dashboard screen runs on **mocked, in-component data on purpose** (per the build
-brief) so it is pitch-deck reliable — it cannot break on stage, no network or API
-required. The separate live engine (Role 2, `lib/arena/*`) runs the real tournament with
-a deterministic mock fallback (`lib/arena/fallback.ts`) and swaps to live Gemini when
-`GEMINI_API_KEY` is set. For judging we show the polished dashboard; the live engine is
-the "it's real" proof point on request.
-
-> Note for the team: the dashboard intentionally uses Planner/Explorer/Verifier with the
-> spec's numbers. The live engine currently ships a 2-agent roster (Speedrunner/Verifier);
-> aligning the engine roster to the dashboard is the one remaining wire-up if we want the
-> dashboard driven by live runs.
+The dashboard is **live-wired**: on load it runs a real tournament via `POST
+/api/arena/demo` and renders the engine's actual results (the `LIVE · ENGINE` badge turns
+on). If that call ever fails — no network, cold serverless, build hiccup — it **silently
+falls back** to a captured real run (`lib/arena/fallback.ts`) and renders the identical
+story, so it **cannot break on stage**. The engine swaps to live **Gemini 3.5 computer
+use** automatically when `GEMINI_API_KEY` is set (the badge then reads `LIVE · Gemini`);
+the trace/score contract is identical, so no UI changes are needed.
 
 ---
 

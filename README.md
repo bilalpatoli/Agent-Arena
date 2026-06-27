@@ -52,7 +52,7 @@ the entire before/after on one screen.
 lib/arena/
   types.ts         domain types (Agent, Run, Skill, SkillPatch, ...)
   challenge.ts     the trap-laden signup challenge (state machine)
-  agents.ts        seed roster: Speedrunner (loses) + Verifier (wins)
+  agents.ts        seed roster: Planner + Explorer (lose) + Verifier (wins)
   runner.ts        AgentRunner interface + behavior helper
   mockRunner.ts    deterministic, skill-driven runner (demo-safe)
   geminiRunner.ts  live Gemini runner + computer-use seam
@@ -61,7 +61,7 @@ lib/arena/
   orchestrator.ts  HybridRunner + runRound + evolve
   store.ts         in-memory tournament singleton
 app/
-  page.tsx         arena UI (minimal; Role 1 owns the polished version)
+  page.tsx         arena dashboard (Role 1) — live-wired to /api/arena/demo
   challenge/       the fake SaaS signup target (live computer-use surface)
   api/arena/*      route handlers above
 agents/<id>/       AGENTS.md (strategy) + SKILL.md (skills) per agent
