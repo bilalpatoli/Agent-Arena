@@ -79,6 +79,14 @@ export function LiveArena() {
     } catch (e) {
       setFatal((e as Error).message);
     } finally {
+      // Never leave an agent spinning: anything still waiting/running when the
+      // stream ends is marked stopped.
+      agentsRef.current = agentsRef.current.map((a) =>
+        a.status === "running" || a.status === "waiting"
+          ? { ...a, status: "error", error: a.error ?? "Run ended before this agent finished." }
+          : a,
+      );
+      setAgents([...agentsRef.current]);
       setRunning(false);
     }
   }
@@ -97,6 +105,9 @@ export function LiveArena() {
         break;
       case "agent-done":
         setAgentState(e.agentId, (a) => ({ ...a, status: "done", run: e.run }));
+        break;
+      case "agent-error":
+        setAgentState(e.agentId, (a) => ({ ...a, status: "error", error: e.message }));
         break;
       case "winner":
         setWinner(e.agentId);
@@ -143,10 +154,14 @@ export function LiveArena() {
               <textarea
                 value={task}
                 onChange={(e) => setTask(e.target.value)}
-                placeholder="Search for 'Alan Turing' and open his article."
+                placeholder="Add a product to the cart  ·  Search for X and open the result  ·  Find the pricing page"
                 rows={2}
                 className="mt-1 w-full resize-none rounded-lg border border-arena-border bg-arena-panel2/50 px-3 py-2 text-sm outline-none"
               />
+              <p className="mt-1 text-[11px] text-arena-muted">
+                Tip: pick a task agents can actually finish (add to cart, search, navigate). Real checkouts need
+                payment and won&apos;t complete.
+              </p>
             </label>
             <details className="text-xs text-arena-muted">
               <summary className="cursor-pointer select-none">Login credentials (optional)</summary>
@@ -248,6 +263,9 @@ function LiveAgentColumn({ agent, isWinner }: { agent: AgentState; isWinner: boo
         )}
       </ol>
       {agent.status === "waiting" && <p className="mt-3 text-xs text-arena-muted">Waiting for its turn…</p>}
+      {agent.status === "error" && (
+        <p className="mt-3 text-xs text-arena-fail">⚠ {agent.error ?? "This agent could not finish."}</p>
+      )}
     </Panel>
   );
 }
@@ -257,6 +275,7 @@ function StatusDot({ agent }: { agent: AgentState }) {
     return <Loader2 size={14} className="animate-spin text-arena-purpleBright" />;
   if (agent.status === "done" && agent.run?.result === "success")
     return <Check size={14} className="text-arena-neon" />;
-  if (agent.status === "done") return <X size={14} className="text-arena-fail" />;
+  if (agent.status === "done" || agent.status === "error")
+    return <X size={14} className="text-arena-fail" />;
   return <span className="h-2 w-2 rounded-full bg-arena-border" />;
 }

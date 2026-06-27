@@ -20,6 +20,7 @@ export type CustomEvent =
   | { type: "agent-start"; agentId: string; agentName: string }
   | { type: "step"; agentId: string; step: TraceStep }
   | { type: "agent-done"; agentId: string; run: Run }
+  | { type: "agent-error"; agentId: string; message: string }
   | { type: "winner"; agentId: string }
   | { type: "patch"; sourceWinner: string; targets: string[]; behavior: string }
   | { type: "complete" }
@@ -60,7 +61,7 @@ export async function runCustomTournament(
       upsertRound(state, runs);
       emit({ type: "agent-done", agentId: agent.id, run });
     } catch (err) {
-      emit({ type: "error", message: `${agent.name} failed: ${(err as Error).message}` });
+      emit({ type: "agent-error", agentId: agent.id, message: (err as Error).message });
     }
   }
 
