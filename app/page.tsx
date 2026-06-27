@@ -47,7 +47,11 @@ export default function ArenaPage() {
             <PatchView key={p.id} patch={p} />
           ))}
 
-          <RoundView title="Round 2 — Rematch" round={data.round2} highlight="speedrunner" />
+          <RoundView
+            title="Round 2 — Rematch"
+            round={data.round2}
+            evolved={data.patches.flatMap((p) => p.targetAgents)}
+          />
 
           <Improvement state={data.state} />
         </div>
@@ -56,14 +60,14 @@ export default function ArenaPage() {
   );
 }
 
-function RoundView({ title, round, highlight }: { title: string; round: RoundResult; highlight?: string }) {
+function RoundView({ title, round, evolved }: { title: string; round: RoundResult; evolved?: string[] }) {
   return (
     <section>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-500">{title}</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {round.runs.map((r) => {
           const win = r.agentId === round.winnerId;
-          const evolved = r.agentId === highlight && r.result === "success";
+          const didEvolve = (evolved ?? []).includes(r.agentId) && r.result === "success";
           return (
             <div
               key={r.agentId}
@@ -82,7 +86,7 @@ function RoundView({ title, round, highlight }: { title: string; round: RoundRes
                   {r.result === "success" ? "✓ SUCCESS" : "✗ FAIL"}
                 </span>
                 {win && <span className="rounded bg-arena-accent/20 px-1.5 text-arena-accent">WINNER</span>}
-                {evolved && <span className="rounded bg-arena-win/20 px-1.5 text-arena-win">AGENT EVOLVED</span>}
+                {didEvolve && <span className="rounded bg-arena-win/20 px-1.5 text-arena-win">AGENT EVOLVED</span>}
               </div>
               <p className="mt-2 text-xs text-zinc-400">{r.failureReason ?? r.signalTrait}</p>
             </div>
