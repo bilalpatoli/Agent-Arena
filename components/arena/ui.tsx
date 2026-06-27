@@ -63,6 +63,13 @@ export function RunStatusBadge({ phase }: { phase: RunPhase }) {
   );
 }
 
+// ── Buttons ───────────────────────────────────────────────────────────────────
+// Consistent height/padding for every interactive control.
+export const BTN_PRIMARY =
+  "inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-arena-purple px-4 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50";
+export const BTN_SECONDARY =
+  "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-arena-border bg-arena-panel px-3.5 text-sm font-medium text-arena-text transition-colors hover:border-arena-purple/50 hover:bg-arena-panel2";
+
 // ── Panel ─────────────────────────────────────────────────────────────────────
 export function Panel({
   children,
@@ -74,7 +81,7 @@ export function Panel({
   glow?: boolean;
 }) {
   return (
-    <section className={`rounded-xl border bg-arena-panel ${glow ? "border-arena-neon/50 glow-neon" : "border-arena-border"} ${className}`}>
+    <section className={`rounded-2xl border bg-arena-panel ${glow ? "border-arena-neon/40 glow-neon" : "border-arena-border"} ${className}`}>
       {children}
     </section>
   );
