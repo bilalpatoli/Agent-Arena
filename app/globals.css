@@ -7,7 +7,56 @@
 }
 
 body {
-  background: #0a0a0f;
-  color: #e5e7eb;
+  background:
+    radial-gradient(1100px 520px at 18% -8%, rgba(139, 92, 246, 0.16), transparent 60%),
+    radial-gradient(900px 480px at 95% 4%, rgba(124, 255, 87, 0.07), transparent 55%),
+    #070709;
+  color: #e8e8f0;
   font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
 }
+
+/* Faint tactical grid inside panels / arena */
+.arena-grid {
+  background-image:
+    linear-gradient(rgba(139, 92, 246, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.05) 1px, transparent 1px);
+  background-size: 38px 38px;
+}
+
+/* Glow helpers */
+.glow-neon {
+  box-shadow: 0 0 0 1px rgba(124, 255, 87, 0.5), 0 0 32px -6px rgba(124, 255, 87, 0.55);
+}
+.glow-purple {
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.4), 0 0 30px -10px rgba(139, 92, 246, 0.45);
+}
+.text-glow-neon {
+  text-shadow: 0 0 18px rgba(124, 255, 87, 0.6);
+}
+.text-glow-purple {
+  text-shadow: 0 0 18px rgba(139, 92, 246, 0.6);
+}
+
+/* Flowing dash on the winning bracket path */
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+.path-flow {
+  stroke-dasharray: 2 6;
+  animation: dash-flow 0.7s linear infinite;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }
+
+@keyframes node-glow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(124, 255, 87, 0.5)); }
+  50% { filter: drop-shadow(0 0 16px rgba(124, 255, 87, 0.85)); }
+}
+.node-glow { animation: node-glow 2s ease-in-out infinite; }
