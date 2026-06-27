@@ -41,6 +41,34 @@ export function seedAgents(): Agent[] {
       scoreHistory: [],
     },
     {
+      id: "planner",
+      name: "Planner",
+      tagline: "Careful and methodical. Reads everything — but takes the page at face value.",
+      strategy:
+        "Read instructions carefully and work top-to-bottom. Scroll the whole page so nothing required is missed. Trust the flow: once the form is submitted and a success message appears, consider the job done.",
+      skills: [
+        {
+          id: "fill-form",
+          text: "Fill the email and password fields carefully.",
+          grants: ["fill-basic-form"],
+          origin: "innate",
+        },
+        {
+          id: "methodical-scan",
+          text: "Read the page top-to-bottom and scroll the whole way down, so required fields below the fold are not missed.",
+          grants: ["scroll-full-page"],
+          origin: "innate",
+        },
+        {
+          id: "handle-modal",
+          text: "Confirm confirmation modals to complete the flow.",
+          grants: ["handle-modal"],
+          origin: "innate",
+        },
+      ],
+      scoreHistory: [],
+    },
+    {
       id: "verifier",
       name: "Verifier",
       tagline: "Methodical. Scans everything. Trusts nothing until confirmed.",
