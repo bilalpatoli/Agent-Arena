@@ -42,8 +42,19 @@ fast, reliable, tells the full Round 1 → Patch → Round 2 story every time.
 ## Real-site demo (saucedemo.com) — capture & replay
 
 The headline framing is **self-improving computer-use agents** on a *real website*.
-The agents complete a checkout on saucedemo.com via live Gemini computer-use. To
-keep that bulletproof on stage, we **capture once, replay forever**:
+The agents complete a checkout on saucedemo.com via live Gemini computer-use.
+
+**The real trajectories are already captured and committed** (`data/trajectories/`),
+so the default demo (`ARENA_CHALLENGE=saucedemo`) replays genuine Gemini-on-saucedemo
+runs out of the box — real screenshots, deterministic, zero live API calls:
+
+```
+Round 1   Speedrunner 36 ✗ (gave up early)   Planner 55 ✗ (stopped at overview)   Verifier 96 ✓
+Patches   Verifier → Speedrunner (follow through), Verifier → Planner (verify the order)
+Round 2   Speedrunner 98 ✓   Planner 100 ✓   Verifier 96 ✓     (real failure → real success)
+```
+
+To re-capture (e.g. a new site or fresh runs) we **capture once, replay forever**:
 
 1. **Capture** (needs quota — billing-enabled key, or wait for free-tier reset):
    ```bash

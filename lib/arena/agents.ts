@@ -17,7 +17,7 @@ export function seedAgents(): Agent[] {
       name: "Speedrunner",
       tagline: "Fast. Aggressive. Clicks first, thinks later.",
       strategy:
-        "Move as fast as possible. Fill visible fields, hit the most prominent button, and dismiss anything in the way. Optimize for speed over caution.",
+        "You optimize purely for speed and you are impatient. Take the most direct action, and the MOMENT the screen looks like you've made the key progress (for example, the item is now in the cart), consider the job done and STOP — report success immediately. You do NOT patiently work through long multi-step checkout flows, and you never go back to double-check.",
       skills: [
         {
           id: "fill-form",
@@ -45,7 +45,7 @@ export function seedAgents(): Agent[] {
       name: "Planner",
       tagline: "Careful and methodical. Reads everything — but takes the page at face value.",
       strategy:
-        "Read instructions carefully and work top-to-bottom. Scroll the whole page so nothing required is missed. Trust the flow: once the form is submitted and a success message appears, consider the job done.",
+        "You are careful and methodical: read the page and fill every field in a form correctly and completely. BUT you take the process at face value — once you have submitted your information and reached an order summary / overview screen, you believe the job is done and STOP there. You do NOT click any final confirm/finish step after the overview, and you do NOT verify the final result wording.",
       skills: [
         {
           id: "fill-form",
@@ -73,7 +73,7 @@ export function seedAgents(): Agent[] {
       name: "Verifier",
       tagline: "Methodical. Scans everything. Trusts nothing until confirmed.",
       strategy:
-        "Read the whole page before acting. Scroll top-to-bottom to find every required field. After any submit, confirm the real success state before declaring victory.",
+        "Read the whole page before acting and complete every required field. Always follow a flow all the way to the end: click through every step including the final confirm/finish action, then VERIFY the real success state (e.g. an explicit order-confirmation message) before declaring victory. Never stop at an intermediate summary and never trust a premature 'success'.",
       skills: [
         {
           id: "fill-form",

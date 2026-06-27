@@ -34,9 +34,11 @@ export function makeTournament(challenge: Challenge = SIGNUP_CHALLENGE): Tournam
   return { taskId: challenge.id, agents: seedAgents(), rounds: [], patches: [] };
 }
 
-/** Which challenge the demo is currently configured to run (ARENA_CHALLENGE). */
+/** Which challenge the demo is currently configured to run (ARENA_CHALLENGE).
+ *  Defaults to the headline real-site demo (saucedemo); ARENA_CHALLENGE=signup
+ *  switches to the synthetic trap page. */
 export function selectChallenge(): Challenge {
-  return CHALLENGES[process.env.ARENA_CHALLENGE ?? "signup"] ?? SIGNUP_CHALLENGE;
+  return CHALLENGES[process.env.ARENA_CHALLENGE ?? "saucedemo"] ?? SIGNUP_CHALLENGE;
 }
 
 /**
