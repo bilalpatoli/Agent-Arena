@@ -5,3 +5,6 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# generated live computer-use proof artifacts (capture with: npx tsx scripts/live-test.ts)
+public/live-trace/
