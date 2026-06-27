@@ -30,12 +30,24 @@ export type TournamentHistoryItem = {
 };
 
 // Derive history from real tournament state.
+//
 // TODO(api): the backend keeps a SINGLE in-memory tournament (lib/arena/store.ts:
-// globalThis.__arena), so this yields at most one entry — the current/most-recent
-// run. Persistent multi-run history needs a backend endpoint, e.g.
-// `GET /api/arena/history` returning `{ runs: TournamentRunSummary[] }` with a
-// stable id, createdAt, and status per run. This component already renders an
-// array, so it will light up the moment that data exists.
+// globalThis.__arena), so this derives at most ONE real entry — the current/
+// most-recent run — and never fabricates rows. Long term we need persistent
+// tournament history:
+//
+//   GET /api/arena/history → persisted tournament runs, each with a real:
+//     - id              (stable, linkable)
+//     - createdAt       (run-level timestamp; today we only have patch.appliedAt)
+//     - status          (completed | running | failed | interrupted)
+//     - winner          (agent id/name, or null)
+//     - agentCount
+//     - patchCount
+//     - improvement     (top improver / summary)
+//     - detail link data (so each row opens /tournaments/[id] with that run)
+//
+// This component already renders an array, so it lights up the moment that
+// endpoint exists.
 export function deriveHistory(state: TournamentState): TournamentHistoryItem[] {
   if (!hasRun(state)) return [];
   const r1 = roundByNumber(state, 1);
