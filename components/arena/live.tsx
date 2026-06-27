@@ -104,10 +104,26 @@ export function LiveArena() {
       case "patch":
         setPatches((p) => [...p, { sourceWinner: e.sourceWinner, targets: e.targets, behavior: e.behavior }]);
         break;
-      case "error":
-        // attach to the currently-running agent if we can infer it, else fatal
+      case "error": {
         setStatus(e.message);
+        // Agents run one at a time, so a per-agent failure belongs to whichever
+        // agent is currently running. Mark it failed and log the failure so it
+        // shows in the column instead of spinning forever. Otherwise it's fatal
+        // (e.g. missing key / no runs completed).
+        const active = agentsRef.current.find((a) => a.status === "running");
+        if (active) {
+          const reason = e.message.replace(/^.*?\bfailed:\s*/i, "").trim() || "Run failed";
+          setAgentState(active.id, (a) => ({
+            ...a,
+            status: "error",
+            error: reason,
+            steps: [...a.steps, { index: a.steps.length, action: "error", description: e.message, ok: false }],
+          }));
+        } else {
+          setFatal(e.message);
+        }
         break;
+      }
       case "complete":
         setStatus("Done.");
         break;
@@ -228,6 +244,13 @@ function LiveAgentColumn({ agent, isWinner }: { agent: AgentState; isWinner: boo
         </div>
       )}
 
+      {agent.status === "error" && !agent.run && (
+        <div className="mt-2 flex items-start gap-2 text-xs">
+          <span className="shrink-0 text-arena-fail">✗ failed</span>
+          {agent.error && <span className="text-arena-muted">{agent.error}</span>}
+        </div>
+      )}
+
       {last?.screenshot?.startsWith("data:") && (
         <img src={last.screenshot} alt="" className="mt-3 aspect-video w-full rounded border border-arena-border object-cover object-top" />
       )}
@@ -255,6 +278,7 @@ function LiveAgentColumn({ agent, isWinner }: { agent: AgentState; isWinner: boo
 function StatusDot({ agent }: { agent: AgentState }) {
   if (agent.status === "running")
     return <Loader2 size={14} className="animate-spin text-arena-purpleBright" />;
+  if (agent.status === "error") return <X size={14} className="text-arena-fail" />;
   if (agent.status === "done" && agent.run?.result === "success")
     return <Check size={14} className="text-arena-neon" />;
   if (agent.status === "done") return <X size={14} className="text-arena-fail" />;
