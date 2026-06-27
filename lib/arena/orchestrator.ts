@@ -3,7 +3,7 @@ import type { Challenge } from "./challenge";
 import { SIGNUP_CHALLENGE } from "./challenge";
 import { seedAgents } from "./agents";
 import { MockRunner } from "./mockRunner";
-import { GeminiRunner, geminiAvailable } from "./geminiRunner";
+import { GeminiRunner, liveEnabled } from "./geminiRunner";
 import { type AgentRunner } from "./runner";
 import { pickWinner } from "./judge";
 import { applyPatch, buildPatch, diffMissingBehaviors } from "./patcher";
@@ -18,7 +18,7 @@ export class HybridRunner implements AgentRunner {
   private mock = new MockRunner();
 
   async run(agent: Agent, challenge: Challenge, round: number): Promise<Run> {
-    if (geminiAvailable()) {
+    if (liveEnabled()) {
       try {
         return await this.gemini.run(agent, challenge, round);
       } catch (err) {
