@@ -286,10 +286,12 @@ function mk(
 function buildSystemInstruction(agent: Agent): string {
   return [
     `You are "${agent.name}", an autonomous web agent. ${agent.tagline}`,
-    `Operating strategy: ${agent.strategy}`,
-    `Your current skills (these define and LIMIT how you behave):`,
-    ...agent.skills.map((s) => `- ${s.text}`),
-    `Act strictly in line with these skills. If a skill is absent, do NOT improvise that behavior.`,
+    `Baseline style: ${agent.strategy}`,
+    `Your SKILLS are binding rules that govern your behavior. When a skill conflicts`,
+    `with your baseline style, the SKILL WINS:`,
+    ...agent.skills.map((s) => `- ${s.text}${s.origin === "patch" ? " (newly learned — apply it)" : ""}`),
+    `Follow every skill. Where no skill applies, fall back to your baseline style;`,
+    `do not invent diligence your skills don't grant.`,
   ].join("\n");
 }
 
@@ -300,10 +302,11 @@ function buildPrompt(agent: Agent, challenge: Challenge): string {
       `Credentials — username: ${challenge.credentials.username}  password: ${challenge.credentials.password}`,
     );
   }
-  if (challenge.taskSpec) lines.push(`Steps:\n${challenge.taskSpec}`);
+  if (challenge.taskSpec) lines.push(challenge.taskSpec);
   lines.push(
-    `You are on the page now. Complete the task using the computer-use tools.`,
-    `Stop only when the task is genuinely complete or you have exhausted your approach.`,
+    `You are on the page now. Pursue the goal using the computer-use tools,`,
+    `behaving exactly according to your strategy and skills — including when you`,
+    `decide you are done. Do not adopt behaviors your skills don't grant.`,
   );
   return lines.join("\n");
 }

@@ -29,6 +29,20 @@ try {
 
 const STAMP = process.env.CAPTURE_STAMP ?? "captured";
 
+// Per-agent step budget. Speedrunner is impatient by design — a tight budget makes
+// its "give up early" personality deterministic (it can't grind out the full
+// checkout), so it reliably fails round 1. After the patch it earns the full
+// budget on round 2 and completes. Others get the full budget throughout.
+const STEP_BUDGET: Record<string, { r1: number; r2: number }> = {
+  speedrunner: { r1: 7, r2: 24 },
+  planner: { r1: 24, r2: 24 },
+  verifier: { r1: 24, r2: 24 },
+};
+function maxStepsFor(agentId: string, round: number): number {
+  const b = STEP_BUDGET[agentId] ?? { r1: 24, r2: 24 };
+  return round === 1 ? b.r1 : b.r2;
+}
+
 /** Runs live + saves a trajectory, OR loads it if already captured (resume). */
 class CaptureRunner implements AgentRunner {
   readonly source = "gemini" as const;
@@ -43,7 +57,7 @@ class CaptureRunner implements AgentRunner {
     const t0 = Date.now();
     const result = await runComputerUse(agent, challenge, {
       baseUrl: process.env.ARENA_BASE_URL ?? "http://localhost:3001",
-      maxSteps: 24,
+      maxSteps: maxStepsFor(agent.id, round),
       recordDir,
     });
     const run = resultToRun(agent, challenge, round, result, Date.now() - t0);

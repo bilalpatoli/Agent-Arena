@@ -9,5 +9,3 @@ next-env.d.ts
 # generated live computer-use proof artifacts (capture with: npx tsx scripts/live-test.ts)
 public/live-trace/
 
-# captured/placeholder trajectories — real ones are force-added in Phase 2
-data/trajectories/
