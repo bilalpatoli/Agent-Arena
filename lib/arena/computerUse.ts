@@ -31,6 +31,8 @@ export interface ComputerUseResult {
   clickedDecoy: boolean;
   finalUrl: string;
   finalState: string;
+  /** When judged by the LLM: why it passed/failed (raw material for a lesson). */
+  judgeReason?: string;
 }
 
 // On real commercial sites, Gemini computer-use raises a safety-acknowledgement
@@ -64,6 +66,8 @@ export async function runComputerUse(
     maxSteps?: number;
     recordDir?: string;
     onEvent?: (e: CuEvent) => void;
+    /** Lessons learned from prior attempts, injected into the system prompt. */
+    extraInstructions?: string;
   } = {
     baseUrl: "http://localhost:3001",
   },
@@ -108,7 +112,7 @@ export async function runComputerUse(
       const input = prevId
         ? pendingResult!
         : [
-            { type: "text", text: buildPrompt(agent, challenge) },
+            { type: "text", text: buildPrompt(agent, challenge, opts.extraInstructions) },
             { type: "image", data: shot, mime_type: "image/jpeg" },
           ];
 
@@ -193,15 +197,22 @@ export async function runComputerUse(
       if (!challenge.useJudge && (await reachedSuccess(page, challenge))) break;
     }
 
-    const success = challenge.useJudge
-      ? await judgeSuccess(ai, await screenshot(page), challenge)
-      : await reachedSuccess(page, challenge);
+    let success: boolean;
+    let judgeReason: string | undefined;
+    if (challenge.useJudge) {
+      const verdict = await judgeOutcome(ai, await screenshot(page), challenge);
+      success = verdict.success;
+      judgeReason = verdict.reason;
+    } else {
+      success = await reachedSuccess(page, challenge);
+    }
     return {
       steps,
       success,
       clickedDecoy,
       finalUrl: page.url(),
       finalState: success ? "success" : "incomplete",
+      judgeReason,
     };
   } finally {
     if (opts.recordDir) {
@@ -302,7 +313,11 @@ async function screenshot(page: Page): Promise<string> {
 
 /** Gemini LLM judge: did the agent accomplish the task? Looks at the final
  *  screenshot + the goal. Used for arbitrary user-supplied sites. */
-async function judgeSuccess(ai: GoogleGenAI, finalShot: string, challenge: Challenge): Promise<boolean> {
+async function judgeOutcome(
+  ai: GoogleGenAI,
+  finalShot: string,
+  challenge: Challenge,
+): Promise<{ success: boolean; reason: string }> {
   try {
     const res: any = await ai.models.generateContent({
       model: "gemini-3.5-flash",
@@ -314,8 +329,9 @@ async function judgeSuccess(ai: GoogleGenAI, finalShot: string, challenge: Chall
               text:
                 `An autonomous web agent was given this task:\n"${challenge.goal}"\n\n` +
                 `This is the final screenshot of the browser. Did the agent SUCCESSFULLY complete the task? ` +
-                `Be strict: only "yes" if the screen clearly shows the task is done. ` +
-                `Answer with JSON: {"success": true|false, "reason": "<short>"}.`,
+                `Be strict: only success=true if the screen clearly shows the task is done. ` +
+                `If it failed, the reason should say concretely WHAT is missing or wrong. ` +
+                `Answer with JSON: {"success": true|false, "reason": "<short, concrete>"}.`,
             },
             { inlineData: { mimeType: "image/jpeg", data: finalShot } },
           ],
@@ -325,10 +341,12 @@ async function judgeSuccess(ai: GoogleGenAI, finalShot: string, challenge: Chall
     });
     const text = res.text ?? res.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     const m = String(text).match(/\{[\s\S]*\}/);
-    return m ? Boolean(JSON.parse(m[0]).success) : false;
+    if (!m) return { success: false, reason: "Could not determine outcome." };
+    const parsed = JSON.parse(m[0]);
+    return { success: Boolean(parsed.success), reason: String(parsed.reason ?? "") };
   } catch (err) {
     dbg(`judge failed: ${(err as Error).message}`);
-    return false;
+    return { success: false, reason: "Judge error." };
   }
 }
 
@@ -385,8 +403,13 @@ function buildSystemInstruction(agent: Agent): string {
   ].join("\n");
 }
 
-function buildPrompt(agent: Agent, challenge: Challenge): string {
+function buildPrompt(agent: Agent, challenge: Challenge, extraInstructions?: string): string {
   const lines = [`Task: ${challenge.goal}`];
+  if (extraInstructions) {
+    lines.push(
+      `\n=== LESSONS LEARNED FROM PRIOR ATTEMPTS (apply these — they are why earlier attempts failed) ===\n${extraInstructions}\n===`,
+    );
+  }
   if (challenge.credentials) {
     lines.push(
       `Credentials — username: ${challenge.credentials.username}  password: ${challenge.credentials.password}`,
