@@ -32,24 +32,33 @@ export class GeminiRunner implements AgentRunner {
 
     const t0 = Date.now();
     const result = await runComputerUse(agent, challenge, { baseUrl: baseUrl() });
-    const durationMs = Date.now() - t0;
-
-    const { score, signalTrait, failureReason } = scoreRun(result);
-
-    return {
-      agentId: agent.id,
-      taskId: challenge.id,
-      round,
-      steps: result.steps.length ? result.steps : [terminalStep(result.success)],
-      finalState: result.finalState,
-      result: result.success ? "success" : "fail",
-      score,
-      failureReason: result.success ? undefined : failureReason,
-      signalTrait,
-      source: this.source,
-      durationMs,
-    };
+    return resultToRun(agent, challenge, round, result, Date.now() - t0);
   }
+}
+
+/** Build a scored Run from a (live or captured) computer-use result.
+ *  Shared by the live runner and the capture script. */
+export function resultToRun(
+  agent: Agent,
+  challenge: Challenge,
+  round: number,
+  result: ComputerUseResult,
+  durationMs: number,
+): Run {
+  const { score, signalTrait, failureReason } = scoreRun(result);
+  return {
+    agentId: agent.id,
+    taskId: challenge.id,
+    round,
+    steps: result.steps.length ? result.steps : [terminalStep(result.success)],
+    finalState: result.finalState,
+    result: result.success ? "success" : "fail",
+    score,
+    failureReason: result.success ? undefined : failureReason,
+    signalTrait,
+    source: "gemini",
+    durationMs,
+  };
 }
 
 // ── ground-truth scoring ─────────────────────────────────────────────────────

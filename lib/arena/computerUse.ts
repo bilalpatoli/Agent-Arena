@@ -140,19 +140,19 @@ export async function runComputerUse(
           ],
         });
 
-        if (await reachedDashboard(page)) break;
+        if (await reachedSuccess(page, challenge)) break;
       }
 
-      if (await reachedDashboard(page)) break;
+      if (await reachedSuccess(page, challenge)) break;
     }
 
-    const success = await reachedDashboard(page);
+    const success = await reachedSuccess(page, challenge);
     return {
       steps,
       success,
       clickedDecoy,
       finalUrl: page.url(),
-      finalState: success ? "dashboard" : "signup (blocked)",
+      finalState: success ? "success" : "incomplete",
     };
   } finally {
     if (opts.recordDir) {
@@ -242,7 +242,13 @@ async function screenshot(page: Page): Promise<string> {
   return buf.toString("base64");
 }
 
-async function reachedDashboard(page: Page): Promise<boolean> {
+async function reachedSuccess(page: Page, challenge: Challenge): Promise<boolean> {
+  // Real challenges: confirm via visible success text on the page.
+  if (challenge.successText?.length) {
+    const body = await page.textContent("body").catch(() => "");
+    return challenge.successText.some((t) => body?.includes(t));
+  }
+  // Synthetic challenge: the dashboard heading testid.
   return page
     .getByTestId("dashboard-heading")
     .isVisible({ timeout: 200 })
@@ -288,9 +294,16 @@ function buildSystemInstruction(agent: Agent): string {
 }
 
 function buildPrompt(agent: Agent, challenge: Challenge): string {
-  return [
-    `Task: ${challenge.goal}`,
+  const lines = [`Task: ${challenge.goal}`];
+  if (challenge.credentials) {
+    lines.push(
+      `Credentials — username: ${challenge.credentials.username}  password: ${challenge.credentials.password}`,
+    );
+  }
+  if (challenge.taskSpec) lines.push(`Steps:\n${challenge.taskSpec}`);
+  lines.push(
     `You are on the page now. Complete the task using the computer-use tools.`,
-    `Stop when you have either reached the real dashboard or exhausted your approach.`,
-  ].join("\n");
+    `Stop only when the task is genuinely complete or you have exhausted your approach.`,
+  );
+  return lines.join("\n");
 }
