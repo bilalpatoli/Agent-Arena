@@ -7,7 +7,8 @@ import type { RunPhase } from "@/lib/arena/client";
 import { useArena } from "./use-arena";
 import { AgentActivity } from "./activity";
 import { AgentCard } from "./agent-card";
-import { BTN_PRIMARY, BTN_SECONDARY, EmptyState, ErrorState, LoadingState, Panel, RunStatusBadge, SectionTitle, StatusBadge } from "./ui";
+import { TournamentHistory } from "./tournament-history";
+import { BTN_PRIMARY, BTN_SECONDARY, ErrorState, LoadingState, Panel, RunStatusBadge, SectionTitle, StatusBadge } from "./ui";
 import { challengeCopy, isComplete, patchedAgentIds, tournamentWinnerId } from "@/lib/arena/view";
 
 export function TournamentOverview() {
@@ -27,18 +28,7 @@ export function TournamentOverview() {
 
       {status === "loading" && <LoadingState />}
       {status === "error" && <ErrorState error={error} onRetry={reload} />}
-      {status === "empty" && (
-        <EmptyState
-          title="No tournaments yet"
-          body="Run your first arena to see agents compete on a real ecommerce checkout."
-          action={
-            <button onClick={run} disabled={running} className={`mt-1 ${BTN_PRIMARY}`}>
-              <Play size={15} />
-              Run Tournament
-            </button>
-          }
-        />
-      )}
+      {status === "empty" && <TournamentHistory status="empty" onRun={run} running={running} />}
 
       {status === "ready" && snapshot && (
         <div className={`space-y-6 transition-opacity duration-300 ${running ? "pointer-events-none opacity-50" : ""}`}>
@@ -52,6 +42,8 @@ export function TournamentOverview() {
               ))}
             </div>
           </section>
+
+          <TournamentHistory state={snapshot.state} status={status} error={error} onRetry={reload} onRun={run} running={running} />
 
           <LatestPatches state={snapshot.state} />
         </div>
