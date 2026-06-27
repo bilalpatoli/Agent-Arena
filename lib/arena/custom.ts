@@ -65,7 +65,9 @@ export async function runCustomTournament(
     try {
       const result = await runner(agent, challenge, {
         baseUrl: challenge.url,
-        maxSteps: 20,
+        // Graded capability: dumber agents get fewer actions and blurrier vision.
+        maxSteps: agent.capability?.maxSteps ?? 20,
+        visionQuality: agent.capability?.vision ?? 55,
         onEvent: (e) => {
           if (e.kind === "step") {
             collected.push(e.step);

@@ -68,13 +68,26 @@ function scoreRun(r: ComputerUseResult): {
   failureReason?: string;
 } {
   if (r.success) {
-    // Real multi-step flows legitimately take ~15-18 actions; only penalize
-    // meaningful overhead beyond that, and keep a high floor.
-    const overhead = Math.max(0, r.steps.length - 16);
-    const score = Math.max(88, 100 - overhead * 2 - (r.clickedDecoy ? 8 : 0));
+    // All successes are NOT equal — score HOW it succeeded so a real winner
+    // emerges even when every agent completes the task. Balanced across:
+    // efficiency (fewer steps), clean execution (no failed/redundant actions),
+    // and verification (did it actually confirm the result).
+    const steps = r.steps.length;
+    const failed = r.steps.filter((s) => !s.ok).length;
+    const verified = r.steps.some(
+      (s) => s.action === "verify" || /verif|confirm|double-check|ensure/i.test(s.description ?? ""),
+    );
+    let score = 100;
+    score -= Math.max(0, steps - 6) * 1.5; // efficiency: lean runs win
+    score -= failed * 5; // clean execution: wasted/failed actions cost
+    score -= verified ? 0 : 6; // thoroughness: not confirming costs
+    score -= r.clickedDecoy ? 8 : 0;
+    score = Math.round(Math.max(72, Math.min(100, score)));
     return {
       score,
-      signalTrait: "Completed the task end-to-end and verified the real success state.",
+      signalTrait: verified
+        ? `Completed and verified the result in ${steps} steps.`
+        : `Completed the task in ${steps} steps, but didn't verify the result.`,
     };
   }
 
