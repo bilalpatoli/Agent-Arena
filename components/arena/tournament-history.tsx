@@ -1,82 +1,32 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { History, Trophy, ArrowUpRight, Play, AlertTriangle } from "lucide-react";
-import type { TournamentState } from "@/lib/arena/types";
-import {
-  agentScores,
-  challengeCopy,
-  hasRun,
-  isComplete,
-  roundByNumber,
-  runForAgent,
-  tournamentWinnerId,
-} from "@/lib/arena/view";
+import { fetchHistory, type RunSummary } from "@/lib/arena/client";
+import type { RunStatus } from "@/lib/arena/historyStore";
 import { BTN_PRIMARY, Panel, SectionTitle, Skeleton } from "./ui";
-import type { ArenaStatus } from "./use-arena";
 
-export type HistoryStatus = "completed" | "running" | "failed" | "interrupted";
-
-export type TournamentHistoryItem = {
-  id: string;
-  name: string;
-  status: HistoryStatus;
-  winnerName: string | null;
-  agentCount: number;
-  patchCount: number;
-  improvement: { name: string; delta: number } | null;
-  timestamp: string | null; // ISO; null when the API doesn't expose one
-  href: string;
+const STATUS_BADGE: Record<RunStatus, { label: string; cls: string }> = {
+  queued: { label: "Queued", cls: "border-arena-border text-arena-muted" },
+  running: { label: "Running", cls: "border-arena-purpleBright/50 text-arena-purpleBright" },
+  completed: { label: "Completed", cls: "border-arena-neon/45 text-arena-neon" },
+  failed: { label: "Failed", cls: "border-arena-red/45 text-arena-red" },
+  interrupted: { label: "Interrupted", cls: "border-arena-amber/45 text-arena-amber" },
 };
 
-// Derive history from real tournament state.
-//
-// TODO(api): the backend keeps a SINGLE in-memory tournament (lib/arena/store.ts:
-// globalThis.__arena), so this derives at most ONE real entry — the current/
-// most-recent run — and never fabricates rows. Long term we need persistent
-// tournament history:
-//
-//   GET /api/arena/history → persisted tournament runs, each with a real:
-//     - id              (stable, linkable)
-//     - createdAt       (run-level timestamp; today we only have patch.appliedAt)
-//     - status          (completed | running | failed | interrupted)
-//     - winner          (agent id/name, or null)
-//     - agentCount
-//     - patchCount
-//     - improvement     (top improver / summary)
-//     - detail link data (so each row opens /tournaments/[id] with that run)
-//
-// This component already renders an array, so it lights up the moment that
-// endpoint exists.
-export function deriveHistory(state: TournamentState): TournamentHistoryItem[] {
-  if (!hasRun(state)) return [];
-  const r1 = roundByNumber(state, 1);
-  const winnerId = tournamentWinnerId(state);
-  const winnerRun = winnerId && r1 ? runForAgent(r1, winnerId) : undefined;
-  const winnerName = winnerRun?.result === "success" ? state.agents.find((a) => a.id === winnerId)?.name ?? null : null;
-
-  const improver =
-    state.agents
-      .map((a) => ({ name: a.name, delta: agentScores(state, a.id).improvement ?? 0 }))
-      .filter((x) => x.delta > 0)
-      .sort((a, b) => b.delta - a.delta)[0] ?? null;
-
-  return [
-    {
-      id: state.taskId,
-      name: challengeCopy(state.taskId).name,
-      status: "completed", // GET /api/arena only reflects settled runs
-      winnerName,
-      agentCount: state.agents.length,
-      patchCount: state.patches.length,
-      improvement: improver,
-      timestamp: state.patches[0]?.appliedAt ?? null, // TODO(api): no run-level timestamp; using first patch's appliedAt
-      href: `/tournaments/${encodeURIComponent(state.taskId)}`,
-    },
-  ];
+export function TournamentStatusBadge({ status }: { status: RunStatus }) {
+  const s = STATUS_BADGE[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.cls}`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {s.label}
+    </span>
+  );
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso?: string): string {
+  if (!iso) return "";
   const ms = Date.now() - new Date(iso).getTime();
   if (Number.isNaN(ms)) return "";
   const s = Math.max(0, Math.round(ms / 1000));
@@ -88,64 +38,50 @@ function relativeTime(iso: string): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
-const STATUS_BADGE: Record<HistoryStatus, { label: string; cls: string }> = {
-  completed: { label: "Completed", cls: "border-arena-neon/45 text-arena-neon" },
-  running: { label: "Running", cls: "border-arena-purpleBright/50 text-arena-purpleBright" },
-  failed: { label: "Failed", cls: "border-arena-red/45 text-arena-red" },
-  interrupted: { label: "Interrupted", cls: "border-arena-amber/45 text-arena-amber" },
-};
-
-export function TournamentStatusBadge({ status }: { status: HistoryStatus }) {
-  const s = STATUS_BADGE[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.cls}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {s.label}
-    </span>
-  );
-}
-
-export function TournamentHistoryRow({ item }: { item: TournamentHistoryItem }) {
+export function TournamentHistoryRow({ run }: { run: RunSummary }) {
+  const failed = run.status === "failed";
   return (
     <Link
-      href={item.href}
+      href={`/tournaments/${encodeURIComponent(run.id)}`}
       className="block rounded-xl border border-arena-border bg-arena-panel2/30 p-4 transition-colors hover:border-arena-purple/40 hover:bg-arena-panel2/50"
     >
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{item.name}</span>
-            <TournamentStatusBadge status={item.status} />
+            <span className="font-semibold">{run.challengeName}</span>
+            <TournamentStatusBadge status={run.status} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-arena-muted">
-            {item.winnerName ? (
+            {failed ? (
+              <span className="text-arena-red">{run.task ? `Live engine unavailable` : "Run failed"}</span>
+            ) : run.winnerAgentName ? (
               <span className="inline-flex items-center gap-1">
                 <Trophy size={12} className="text-arena-neon" />
-                Winner: <span className="font-medium text-arena-neon">{item.winnerName}</span>
+                Winner: <span className="font-medium text-arena-neon">{run.winnerAgentName}</span>
               </span>
             ) : (
               <span>No winner selected</span>
             )}
             <Dot />
-            <span>{item.agentCount} agents</span>
+            <span>{run.agentCount} agents</span>
             <Dot />
             <span>
-              {item.patchCount} {item.patchCount === 1 ? "patch" : "patches"}
+              {run.patchCount} {run.patchCount === 1 ? "patch" : "patches"}
             </span>
-            {item.improvement && (
+            {run.improvementSummary && run.improvementSummary.delta > 0 && (
               <>
                 <Dot />
                 <span className="text-arena-neon">
-                  {item.improvement.name} +{item.improvement.delta}
+                  {run.improvementSummary.agentName} +{run.improvementSummary.delta}
                 </span>
               </>
             )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
-          {item.timestamp && <span className="text-[11px] tabular-nums text-arena-muted">{relativeTime(item.timestamp)}</span>}
+          <span className="text-[11px] tabular-nums text-arena-muted">{relativeTime(run.createdAt)}</span>
           <span className="inline-flex items-center gap-1 text-sm font-medium text-arena-purpleBright">
-            View
+            {failed ? "View details" : "View"}
             <ArrowUpRight size={14} />
           </span>
         </div>
@@ -201,40 +137,48 @@ export function HistoryErrorState({ error, onRetry }: { error?: string | null; o
 }
 
 // ── Section ───────────────────────────────────────────────────────────────────
-export function TournamentHistory({
-  state,
-  status,
-  error,
-  onRetry,
-  onRun,
-  running,
-}: {
-  state?: TournamentState;
-  status: ArenaStatus;
-  error?: string | null;
-  onRetry?: () => void;
-  onRun?: () => void;
-  running?: boolean;
-}) {
-  const items = state ? deriveHistory(state) : [];
+// Driven entirely by the persisted-history endpoint (GET /api/arena/history) —
+// real saved runs, never derived/fabricated. Re-fetches when a run finishes.
+export function TournamentHistory({ onRun, running }: { onRun?: () => void; running?: boolean }) {
+  const [runs, setRuns] = useState<RunSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setRuns((await fetchHistory()).runs);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Refresh when a run transitions from running → done, so the new run shows up.
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (wasRunning.current && !running) load();
+    wasRunning.current = running;
+  }, [running, load]);
+
   return (
     <Panel className="p-5">
       <SectionTitle icon={<History size={14} />}>Tournament History</SectionTitle>
-      {status === "loading" && <HistoryLoadingState />}
-      {status === "error" && <HistoryErrorState error={error} onRetry={onRetry} />}
-      {(status === "empty" || (status === "ready" && items.length === 0)) && <HistoryEmptyState onRun={onRun} running={running} />}
-      {status === "ready" && items.length > 0 && (
-        <>
-          <ul className="mt-4 space-y-3">
-            {items.map((item) => (
-              <TournamentHistoryRow key={item.id} item={item} />
-            ))}
-          </ul>
-          {/* Honest note: one real run today; multi-run history needs a backend endpoint (see deriveHistory TODO). */}
-          <p className="mt-3 text-[11px] text-arena-muted">
-            Showing the current run. Persistent multi-run history will appear here once a history endpoint is available.
-          </p>
-        </>
+      {loading && runs === null && <HistoryLoadingState />}
+      {error && <HistoryErrorState error={error} onRetry={load} />}
+      {!error && runs !== null && runs.length === 0 && <HistoryEmptyState onRun={onRun} running={running} />}
+      {!error && runs !== null && runs.length > 0 && (
+        <ul className="mt-4 space-y-3">
+          {runs.map((run) => (
+            <TournamentHistoryRow key={run.id} run={run} />
+          ))}
+        </ul>
       )}
     </Panel>
   );

@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Play, RotateCw, ShoppingCart, Trophy } from "lucide-react";
 import type { TournamentState } from "@/lib/arena/types";
 import { challengeCopy, isComplete, tournamentWinnerId } from "@/lib/arena/view";
+import { fetchTournament, type PersistedRun } from "@/lib/arena/client";
 import { useArena } from "./use-arena";
 import { BTN_PRIMARY, EmptyState, ErrorState, LoadingState, Panel, RunStatusBadge, SectionTitle } from "./ui";
+import { TournamentStatusBadge } from "./tournament-history";
 import { AgentCard } from "./agent-card";
 import { ArenaBracket } from "./bracket";
 import { SkillPatchViewer } from "./patch";
@@ -36,6 +39,72 @@ export function TournamentDetail() {
   return (
     <div className="space-y-6">
       <DetailHeader state={state} phase={phase} running={running} onRun={run} />
+      <DetailBody state={state} />
+    </div>
+  );
+}
+
+// Read-only detail for a PERSISTED run, loaded by id (GET /api/arena/tournaments/:id).
+export function TournamentDetailById({ id }: { id: string }) {
+  const [run, setRun] = useState<PersistedRun | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetchTournament(id);
+        if (alive) setRun(res.run);
+      } catch (e) {
+        if (alive) setError((e as Error).message);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  if (loading) return <LoadingState label="Loading tournament run…" />;
+  if (error) return <ErrorState title="Could not load this tournament run" error={error} onRetry={() => location.reload()} />;
+  if (!run) return <EmptyState title="Tournament run not found" body="This run is no longer available." />;
+
+  const copy = challengeCopy(run.state.taskId);
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-col gap-3 border-b border-arena-border pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/" className="text-sm font-medium text-arena-purpleBright hover:underline">
+              Arena
+            </Link>
+            <span className="text-arena-muted">/</span>
+            <h1 className="text-2xl font-bold tracking-tight">{copy.name}</h1>
+          </div>
+          <p className="mt-1 truncate font-mono text-xs text-arena-muted">
+            {run.id} · saved {new Date(run.createdAt).toLocaleString()}
+          </p>
+        </div>
+        <TournamentStatusBadge status={run.status} />
+      </header>
+
+      {run.failureReason && (
+        <Panel className="border-arena-red/40 bg-arena-red/[0.05] p-4 text-sm text-arena-red">{run.failureReason}</Panel>
+      )}
+
+      <DetailBody state={run.state} />
+    </div>
+  );
+}
+
+// The full detail sections, rendered from any TournamentState (live or persisted).
+function DetailBody({ state }: { state: TournamentState }) {
+  return (
+    <>
       <ChallengeSummary state={state} />
 
       <Section title="Agents competing">
@@ -57,7 +126,7 @@ export function TournamentDetail() {
 
       <BeforeAfterComparison state={state} />
       <TraceInspector state={state} />
-    </div>
+    </>
   );
 }
 

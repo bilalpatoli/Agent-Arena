@@ -28,7 +28,6 @@ export function TournamentOverview() {
 
       {status === "loading" && <LoadingState />}
       {status === "error" && <ErrorState error={error} onRetry={reload} />}
-      {status === "empty" && <TournamentHistory status="empty" onRun={run} running={running} />}
 
       {status === "ready" && snapshot && (
         <div className={`space-y-6 transition-opacity duration-300 ${running ? "pointer-events-none opacity-50" : ""}`}>
@@ -42,9 +41,15 @@ export function TournamentOverview() {
               ))}
             </div>
           </section>
+        </div>
+      )}
 
-          <TournamentHistory state={snapshot.state} status={status} error={error} onRetry={reload} onRun={run} running={running} />
+      {/* Persistent multi-run history (real saved runs) — always shown so past
+          runs survive a reset/refresh; handles its own loading/empty/error. */}
+      {status !== "loading" && status !== "error" && <TournamentHistory onRun={run} running={running} />}
 
+      {status === "ready" && snapshot && (
+        <div className={`transition-opacity duration-300 ${running ? "pointer-events-none opacity-50" : ""}`}>
           <LatestPatches state={snapshot.state} />
         </div>
       )}

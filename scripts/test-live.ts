@@ -1,11 +1,19 @@
 /* eslint-disable no-console */
-// Live Arena event-contract tests (run: `npm test`). Uses an injected mock
-// runner so no real Gemini/browser is needed.
+// Live Arena event-contract + history-persistence tests (run: `npm test`).
+// Uses an injected mock runner so no real Gemini/browser is needed, and an
+// isolated temp history dir so nothing touches real saved runs.
+import os from "os";
+import path from "path";
+import { promises as fs } from "fs";
 import { buildCustomChallenge } from "../lib/arena/challenge";
 import { runCustomTournament } from "../lib/arena/custom";
 import type { LiveArenaEvent } from "../lib/arena/liveEvents";
+import { getRun, listRuns, saveRun, toSummary, type PersistedRun } from "../lib/arena/historyStore";
+import type { TournamentState } from "../lib/arena/types";
 
 process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY || "test-key";
+const TEST_HISTORY_DIR = path.join(os.tmpdir(), `arena-test-history-${Date.now()}`);
+process.env.ARENA_HISTORY_DIR = TEST_HISTORY_DIR;
 
 type Behavior = "success" | "fail" | "throw";
 
@@ -93,7 +101,65 @@ async function main() {
     process.env.GEMINI_API_KEY = saved;
     check(ofType(ev, "error").some((e) => e.fatal === true), "missing key → fatal error event");
     check(ofType(ev, "agent-started").length === 0, "no agents start on a fatal error");
+    // The fatal run is still SAVED as failed so it's viewable.
+    const failedRun = (await listRuns()).find((r) => r.status === "failed");
+    check(!!failedRun && !!failedRun.failureReason, "fatal (no key) run is persisted with status:failed + reason");
   }
+
+  console.log("\n# history persistence (direct)");
+  {
+    const state: TournamentState = {
+      taskId: "saucedemo-checkout-v1",
+      agents: [
+        { id: "planner", name: "Planner", tagline: "", strategy: "", skills: [], scoreHistory: [60, 100] },
+        { id: "verifier", name: "Verifier", tagline: "", strategy: "", skills: [], scoreHistory: [100, 100] },
+      ],
+      rounds: [
+        {
+          round: 1,
+          taskId: "x",
+          winnerId: "verifier",
+          runs: [
+            { agentId: "verifier", taskId: "x", round: 1, steps: [], finalState: "done", result: "success", score: 100, source: "mock", durationMs: 1 },
+            { agentId: "planner", taskId: "x", round: 1, steps: [], finalState: "stuck", result: "fail", score: 60, source: "mock", durationMs: 1 },
+          ],
+        },
+        { round: 2, taskId: "x", winnerId: "planner", runs: [] },
+      ],
+      patches: [
+        { id: "p1", round: 1, sourceWinner: "verifier", targetAgents: ["planner"], winningBehavior: "verify", failureCorrected: "", newSkillText: "", appliedAt: new Date().toISOString() },
+      ],
+    };
+    const rec: PersistedRun = {
+      id: "test-direct-1",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: "completed",
+      challengeName: "Swag Labs Checkout",
+      challengeType: "Swag Labs Checkout",
+      task: "checkout",
+      state,
+    };
+    await saveRun(rec);
+    const got = await getRun("test-direct-1");
+    check(!!got && got.id === "test-direct-1", "saveRun → getRun round-trips");
+    check((await listRuns()).some((r) => r.id === "test-direct-1"), "listRuns includes the saved run");
+    const sum = toSummary(rec);
+    check(sum.winnerAgentName === "Verifier" && sum.winnerAgentId === "verifier", "summary derives the real winner");
+    check(sum.agentCount === 2 && sum.patchCount === 1, "summary derives agent + patch counts");
+    check(!!sum.improvementSummary && sum.improvementSummary.agentId === "planner" && sum.improvementSummary.delta === 40, "summary derives top improver (Planner +40)");
+
+    // No-winner (all failed) → winnerAgentId null.
+    const noWinner: PersistedRun = {
+      ...rec,
+      id: "test-direct-2",
+      state: { ...state, rounds: [{ round: 1, taskId: "x", winnerId: "planner", runs: [{ agentId: "planner", taskId: "x", round: 1, steps: [], finalState: "stuck", result: "fail", score: 0, source: "mock", durationMs: 1 }] }] },
+    };
+    check(toSummary(noWinner).winnerAgentId === null, "all-failed run summarizes with winnerAgentId:null");
+  }
+
+  // Clean up the isolated test history dir.
+  await fs.rm(TEST_HISTORY_DIR, { recursive: true, force: true }).catch(() => {});
 
   console.log(`\n${failures === 0 ? "✓ ALL PASS" : "✗ " + failures + " CHECK(S) FAILED"}\n`);
   process.exit(failures === 0 ? 0 : 1);

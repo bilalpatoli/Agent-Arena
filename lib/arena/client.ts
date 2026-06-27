@@ -36,6 +36,14 @@ async function req<T>(input: string, init?: RequestInit): Promise<T> {
 
 export const fetchSnapshot = (): Promise<ArenaSnapshot> => req<ArenaSnapshot>("/api/arena");
 
+// Persisted tournament history (type-only import — historyStore is server-side).
+import type { PersistedRun, RunSummary } from "./historyStore";
+export type { PersistedRun, RunSummary } from "./historyStore";
+
+export const fetchHistory = (): Promise<{ runs: RunSummary[] }> => req("/api/arena/history");
+export const fetchTournament = (id: string): Promise<{ run: PersistedRun }> =>
+  req(`/api/arena/tournaments/${encodeURIComponent(id)}`);
+
 // ── Enter-your-own-agent (proposed API — see docs/AGENT-SUBMISSION.md) ─────────
 export type NewAgent = { name: string; strategy: string; behaviors: string[] };
 

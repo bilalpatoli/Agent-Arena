@@ -7,6 +7,7 @@ import { pickWinner } from "./judge";
 import { evolve, makeTournament } from "./orchestrator";
 import { setActiveTournament } from "./store";
 import { classifyError, type LiveArenaEvent, type RunSummary } from "./liveEvents";
+import { newRunId, upsertRun, type RunStatus } from "./historyStore";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Live "paste a URL" mode: run the 3 agents against a user-supplied website with
@@ -30,21 +31,30 @@ export async function runCustomTournament(
   emit: (e: LiveArenaEvent) => void,
   runner: Runner = runComputerUse,
 ): Promise<void> {
-  if (!process.env.GEMINI_API_KEY) {
-    emit({ type: "error", message: "GEMINI_API_KEY is not set — live runs need a Gemini key.", fatal: true, errorCode: "NO_API_KEY" });
-    return;
-  }
-
   const state = makeTournament(challenge);
   state.agents = seedAgents();
   setActiveTournament(state); // so GET /api/arena reflects the live run as it builds
 
+  // Persist this run to history under a real id from the very start, so even a
+  // fatal failure is saved and viewable.
+  const runId = newRunId(state.taskId);
+  const persist = (status: RunStatus, failureReason?: string) =>
+    upsertRun({ id: runId, status, state, failureReason }).catch(() => {});
+
+  if (!process.env.GEMINI_API_KEY) {
+    await persist("failed", "GEMINI_API_KEY is not set — live runs need a Gemini key.");
+    emit({ type: "error", message: "GEMINI_API_KEY is not set — live runs need a Gemini key.", fatal: true, errorCode: "NO_API_KEY" });
+    return;
+  }
+
   if (state.agents.length === 0) {
+    await persist("failed", "No agents are configured for the arena.");
     emit({ type: "error", message: "No agents are configured for the arena.", fatal: true, errorCode: "NO_AGENTS" });
     return;
   }
 
-  emit({ type: "run-started", runId: `${challenge.id}-${Date.now()}`, task: challenge.goal, url: challenge.url });
+  emit({ type: "run-started", runId, task: challenge.goal, url: challenge.url });
+  await persist("running");
 
   const runs: Run[] = [];
 
@@ -110,6 +120,8 @@ export async function runCustomTournament(
   };
 
   setActiveTournament(state);
+  // All-agents-failed is a valid COMPLETED run with no winner (not a fatal error).
+  await persist("completed");
   emit({
     type: "run-done",
     status: "completed",
