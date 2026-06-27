@@ -364,8 +364,13 @@ async function reachedSuccess(page: Page, challenge: Challenge): Promise<boolean
 }
 
 function isDecoy(action: string, args: any, challenge: Challenge): boolean {
+  // Only meaningful for challenges that actually define a decoy. Custom/live
+  // challenges have an empty decoy label — guard against intent.includes("")
+  // (always true), which previously docked every run 8 points.
+  const label = (challenge.decoy?.label ?? "").toLowerCase().trim();
+  if (!challenge.decoy?.penalty || label.length < 4) return false;
   const intent = String(args.intent ?? "").toLowerCase();
-  return intent.includes("get started") || intent.includes(challenge.decoy.label.toLowerCase().slice(0, 8));
+  return intent.includes(label.slice(0, 8));
 }
 
 function targetFromArgs(args: any): string | undefined {
