@@ -31,6 +31,26 @@ export interface ComputerUseResult {
   clickedDecoy: boolean;
   finalUrl: string;
   finalState: string;
+  /** When judged by the LLM: why it passed/failed (raw material for a lesson). */
+  judgeReason?: string;
+}
+
+// On real commercial sites, Gemini computer-use raises a safety-acknowledgement
+// gate on some clicks (consent walls, account/form steps), which otherwise stalls
+// a run. Setting ARENA_RELAX_SAFETY=1 disables the BENIGN policies below so those
+// steps proceed. "financial_transactions" is intentionally NEVER disabled — that
+// gate stays on, so an agent can never complete a real purchase/payment; it
+// safely fails at the payment step instead. OFF by default (no policies disabled).
+const RELAXABLE_SAFETY_POLICIES = [
+  "user_consent_management",
+  "legal_terms_and_agreements",
+  "account_creation",
+  "data_modification",
+  "sensitive_data_modification",
+  "communication_tool",
+];
+function disabledSafetyPolicies(): string[] {
+  return process.env.ARENA_RELAX_SAFETY === "1" ? RELAXABLE_SAFETY_POLICIES : [];
 }
 
 /** Live progress event for streaming a run to the UI. */
@@ -46,6 +66,8 @@ export async function runComputerUse(
     maxSteps?: number;
     recordDir?: string;
     onEvent?: (e: CuEvent) => void;
+    /** Lessons learned from prior attempts, injected into the system prompt. */
+    extraInstructions?: string;
   } = {
     baseUrl: "http://localhost:3001",
   },
@@ -67,11 +89,18 @@ export async function runComputerUse(
       ...(opts.recordDir ? { recordVideo: { dir: opts.recordDir, size: VIEWPORT } } : {}),
     });
     const page = await context.newPage();
-    page.setDefaultTimeout(8000); // no Playwright action may hang the loop
+    page.setDefaultTimeout(8000); // no Playwright *action* may hang the loop
     const startUrl = new URL(challenge.url, opts.baseUrl).toString();
     // NOT "networkidle": the Next dev HMR websocket keeps the network busy forever.
-    await page.goto(startUrl, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(500);
+    // Navigation gets its own generous timeout — heavy commercial sites take far
+    // longer than the 8s action default to reach domcontentloaded.
+    try {
+      await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+    } catch {
+      // Some sites never fire a clean load event; continue with whatever rendered.
+      emit({ kind: "status", message: "page slow to settle — continuing" });
+    }
+    await page.waitForTimeout(800);
     emit({ kind: "status", message: `opened ${startUrl}` });
 
     let prevId: string | undefined;
@@ -83,7 +112,7 @@ export async function runComputerUse(
       const input = prevId
         ? pendingResult!
         : [
-            { type: "text", text: buildPrompt(agent, challenge) },
+            { type: "text", text: buildPrompt(agent, challenge, opts.extraInstructions) },
             { type: "image", data: shot, mime_type: "image/jpeg" },
           ];
 
@@ -97,7 +126,13 @@ export async function runComputerUse(
             model: MODEL,
             store: true,
             system_instruction: buildSystemInstruction(agent),
-            tools: [{ type: "computer_use", environment: "browser" }] as any,
+            tools: [
+              {
+                type: "computer_use",
+                environment: "browser",
+                disabled_safety_policies: disabledSafetyPolicies(),
+              },
+            ] as any,
             previous_interaction_id: prevId,
             input: input as any,
           },
@@ -162,15 +197,22 @@ export async function runComputerUse(
       if (!challenge.useJudge && (await reachedSuccess(page, challenge))) break;
     }
 
-    const success = challenge.useJudge
-      ? await judgeSuccess(ai, await screenshot(page), challenge)
-      : await reachedSuccess(page, challenge);
+    let success: boolean;
+    let judgeReason: string | undefined;
+    if (challenge.useJudge) {
+      const verdict = await judgeOutcome(ai, await screenshot(page), challenge);
+      success = verdict.success;
+      judgeReason = verdict.reason;
+    } else {
+      success = await reachedSuccess(page, challenge);
+    }
     return {
       steps,
       success,
       clickedDecoy,
       finalUrl: page.url(),
       finalState: success ? "success" : "incomplete",
+      judgeReason,
     };
   } finally {
     if (opts.recordDir) {
@@ -271,7 +313,11 @@ async function screenshot(page: Page): Promise<string> {
 
 /** Gemini LLM judge: did the agent accomplish the task? Looks at the final
  *  screenshot + the goal. Used for arbitrary user-supplied sites. */
-async function judgeSuccess(ai: GoogleGenAI, finalShot: string, challenge: Challenge): Promise<boolean> {
+async function judgeOutcome(
+  ai: GoogleGenAI,
+  finalShot: string,
+  challenge: Challenge,
+): Promise<{ success: boolean; reason: string }> {
   try {
     const res: any = await ai.models.generateContent({
       model: "gemini-3.5-flash",
@@ -283,8 +329,9 @@ async function judgeSuccess(ai: GoogleGenAI, finalShot: string, challenge: Chall
               text:
                 `An autonomous web agent was given this task:\n"${challenge.goal}"\n\n` +
                 `This is the final screenshot of the browser. Did the agent SUCCESSFULLY complete the task? ` +
-                `Be strict: only "yes" if the screen clearly shows the task is done. ` +
-                `Answer with JSON: {"success": true|false, "reason": "<short>"}.`,
+                `Be strict: only success=true if the screen clearly shows the task is done. ` +
+                `If it failed, the reason should say concretely WHAT is missing or wrong. ` +
+                `Answer with JSON: {"success": true|false, "reason": "<short, concrete>"}.`,
             },
             { inlineData: { mimeType: "image/jpeg", data: finalShot } },
           ],
@@ -294,10 +341,12 @@ async function judgeSuccess(ai: GoogleGenAI, finalShot: string, challenge: Chall
     });
     const text = res.text ?? res.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     const m = String(text).match(/\{[\s\S]*\}/);
-    return m ? Boolean(JSON.parse(m[0]).success) : false;
+    if (!m) return { success: false, reason: "Could not determine outcome." };
+    const parsed = JSON.parse(m[0]);
+    return { success: Boolean(parsed.success), reason: String(parsed.reason ?? "") };
   } catch (err) {
     dbg(`judge failed: ${(err as Error).message}`);
-    return false;
+    return { success: false, reason: "Judge error." };
   }
 }
 
@@ -354,8 +403,13 @@ function buildSystemInstruction(agent: Agent): string {
   ].join("\n");
 }
 
-function buildPrompt(agent: Agent, challenge: Challenge): string {
+function buildPrompt(agent: Agent, challenge: Challenge, extraInstructions?: string): string {
   const lines = [`Task: ${challenge.goal}`];
+  if (extraInstructions) {
+    lines.push(
+      `\n=== LESSONS LEARNED FROM PRIOR ATTEMPTS (apply these — they are why earlier attempts failed) ===\n${extraInstructions}\n===`,
+    );
+  }
   if (challenge.credentials) {
     lines.push(
       `Credentials — username: ${challenge.credentials.username}  password: ${challenge.credentials.password}`,
