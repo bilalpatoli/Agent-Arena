@@ -35,6 +35,29 @@ async function req<T>(input: string, init?: RequestInit): Promise<T> {
 }
 
 export const fetchSnapshot = (): Promise<ArenaSnapshot> => req<ArenaSnapshot>("/api/arena");
+
+// ── Enter-your-own-agent (proposed API — see docs/AGENT-SUBMISSION.md) ─────────
+export type NewAgent = { name: string; strategy: string; behaviors: string[] };
+
+/** Sentinel thrown when the agent-submission endpoint isn't wired yet. */
+export const NOT_IMPLEMENTED = "AGENT_SUBMISSION_NOT_IMPLEMENTED";
+
+export async function submitAgent(agent: NewAgent): Promise<{ state: TournamentState }> {
+  let res: Response;
+  try {
+    res = await fetch("/api/arena/agents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(agent),
+    });
+  } catch (e) {
+    throw new ApiError(0, `Network error: ${(e as Error).message}`);
+  }
+  // The backend endpoint is proposed but may not exist yet — surface that clearly.
+  if (res.status === 404 || res.status === 405) throw new ApiError(res.status, NOT_IMPLEMENTED);
+  if (!res.ok) throw new ApiError(res.status, `Could not add agent (${res.status})`);
+  return res.json();
+}
 export const resetArena = (): Promise<{ state: TournamentState }> =>
   req("/api/arena/reset", { method: "POST" });
 export const runRound = (): Promise<{ round: RoundResult; state: TournamentState }> =>

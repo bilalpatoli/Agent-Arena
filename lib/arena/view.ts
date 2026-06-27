@@ -35,6 +35,15 @@ export const CHALLENGE_COPY: Record<string, { name: string; summary: string; tas
 export const challengeCopy = (taskId: string) =>
   CHALLENGE_COPY[taskId] ?? { name: "Arena", summary: "Agents compete on a shared task.", task: "Complete the task." };
 
+// The engine's behavior vocabulary (skill grants). Used by the "enter your own
+// agent" flow — an agent's strengths/weaknesses emerge from which it has.
+export const BEHAVIORS: { tag: string; label: string; desc: string }[] = [
+  { tag: "fill-basic-form", label: "Fill forms & set up the task", desc: "Log in, add to cart, fill fields — get the task started." },
+  { tag: "scroll-full-page", label: "Reproduce & inspect thoroughly", desc: "Investigate the page fully before acting; don't take it at face value." },
+  { tag: "handle-modal", label: "Handle dialogs & run steps", desc: "Confirm modals and complete intermediate steps." },
+  { tag: "verify-final-state", label: "Verify the real success state", desc: "Confirm the true success page before declaring done." },
+];
+
 export type AgentStatus = "winner" | "improved" | "success" | "failed" | "pending";
 
 export const roundByNumber = (s: TournamentState, n: number): RoundResult | undefined =>

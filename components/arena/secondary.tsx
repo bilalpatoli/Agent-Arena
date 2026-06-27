@@ -5,6 +5,7 @@ import { ArrowUpRight, Trophy, Settings as SettingsIcon, Play } from "lucide-rea
 import { useArena } from "./use-arena";
 import { EmptyState, ErrorState, LoadingState, Panel, SectionTitle, StatusBadge } from "./ui";
 import { AgentCard } from "./agent-card";
+import { AgentSubmissionForm } from "./agent-form";
 import { SkillPatchViewer } from "./patch";
 import { challengeCopy, isComplete, tournamentWinnerId } from "@/lib/arena/view";
 
@@ -43,6 +44,7 @@ export function AgentsView() {
           ))}
         </div>
       )}
+      <AgentSubmissionForm onAdded={reload} />
     </div>
   );
 }
